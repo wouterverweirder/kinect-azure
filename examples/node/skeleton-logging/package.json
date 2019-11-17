@@ -1,0 +1,14 @@
+{
+  "name": "kinect-azure-demo",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "node .",
+    "postinstall": "node ./node_modules/kinect-azure/scripts/install.js"
+  },
+  "author": "Wouter Verweirder",
+  "license": "MIT",
+  "devDependencies": {
+    "kinect-azure": "file:../../../"
+  }
+}
