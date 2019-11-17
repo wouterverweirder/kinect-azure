@@ -39,7 +39,7 @@ const init = async () => {
     await extractFile(settings.TARGET_KINECT_CUDNN_ZIP, settings.TARGET_KINECT_CUDNN_DIR);
   }
 
-  const appRoot = process.cwd();
+  const appRoot = process.cwd().split('/node_modules')[0];
   const { appRootDlls } = settings;
   for (const dllName in appRootDlls) {
     if (appRootDlls.hasOwnProperty(dllName)) {
