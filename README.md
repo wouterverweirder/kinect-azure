@@ -20,15 +20,19 @@ Coming later:
 
 Make sure you have the Azure Kinect drivers installed.
 
-Just npm install like you would do with any regular module. There are no precompiled binaries yet, so you need to have [node-gyp installed on your system](https://github.com/nodejs/node-gyp).
+Just npm install like you would do with any regular module. 
+
+```
+npm install kinect-azure
+```
+
+There are no precompiled binaries yet, so you need to have [node-gyp installed on your system](https://github.com/nodejs/node-gyp).
 
 ### Potential issues
 
 You might run into the error below when trying to install this module:
 
-```
-Error: spawn C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\15.0\Bin\MSBuild.exe ENOENT
-```
+> Error: spawn C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\15.0\Bin\MSBuild.exe ENOENT
 
 To fix this, make sure to install the latest version of node-gyp globally:
 
