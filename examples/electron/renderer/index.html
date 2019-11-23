@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html class="h-100 mh-100">
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Examples</title>
+    <link rel="stylesheet" href="assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+    <style>
+    .bd-sidebar {
+      top: 0;
+      height: auto;
+    }
+    </style>
+  </head>
+  <body class="container-fluid h-100 mh-100">
+    <div class="row h-100 mh-100">
+      <div class="col-3 bd-sidebar pt-2">
+        <nav class="bd-links">
+          <div class="bd-toc-item">
+            <h2 class="h3 pl-4">Demos</h2>
+          </div>
+          <div class="bd-toc-item active">
+            <ul class="nav bd-sidenav">
+              <li><a href="demos/color-stream-jpeg.html" target="viewer">color stream (jpeg)</a></li>
+              <li><a href="demos/depth-stream-colored.html" target="viewer">depth stream (colored)</a></li>
+              <li><a href="demos/depth-stream-greyscale.html" target="viewer">depth stream (greyscale)</a></li>
+              <li><a href="demos/body-tracking-skeleton-3d.html" target="viewer">body tracking (3D)</a></li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      <webview class="col pr-0" id="viewer" name="viewer" src="demos/color-stream-jpeg.html" nodeintegration>
+      </webview>
+    </div>
+    <script>
+    {
+      const $viewer = document.getElementById('viewer');
+      document.querySelectorAll('[target="viewer"]').forEach(link => {
+        link.addEventListener('click', e => {
+          e.preventDefault();
+          $viewer.src = link.href;
+        });
+      });
+    }
+    </script>
+  </body>
+</html>

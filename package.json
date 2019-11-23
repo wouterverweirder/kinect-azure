@@ -1,6 +1,6 @@
 {
   "name": "kinect-azure",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Nodejs library to access the azure kinect data from the official SDK",
   "repository": "https://github.com/wouterverweirder/kinect-azure",
   "main": "lib/kinect-azure.js",
@@ -15,7 +15,7 @@
     "node": ">= 10.6.0"
   },
   "scripts": {
-    "install": "node ./scripts/install.js && node-gyp configure && node-gyp build",
+    "install": "node ./scripts/install.js && node-gyp rebuild",
     "prepublishOnly": "rimraf ./examples/**/node_modules"
   },
   "gypfile": true,

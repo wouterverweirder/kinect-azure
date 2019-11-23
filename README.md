@@ -59,11 +59,12 @@ If you can't find these files, copy them from inside node_modules/kinect-azure t
 
 ## Examples
 
-There are a couple of examples in the examples/ folder of this repo. You can run an example by executing npm install in that folder and npm start:
+There are nodejs and electron examples in the examples/ folder of this repo. To run them, execute npm install and npm start:
 
 ```
-$ cd examples/electron/camera-feeds
+$ cd examples/electron
 $ npm install
 $ npm start
 ```
 
+The electron examples have the javascript code inside the html files. You can find these html files in [examples/electron/renderer/demos](examples/electron/renderer/demos).
