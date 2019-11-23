@@ -23,7 +23,7 @@ Make sure you have the Azure Kinect drivers installed.
 Just npm install like you would do with any regular module. 
 
 ```
-npm install kinect-azure
+$ npm install kinect-azure
 ```
 
 There are no precompiled binaries yet, so you need to have [node-gyp installed on your system](https://github.com/nodejs/node-gyp).
@@ -37,7 +37,7 @@ You might run into the error below when trying to install this module:
 To fix this, make sure to install the latest version of node-gyp globally:
 
 ```
-npm install -g node-gyp
+$ npm install -g node-gyp
 ```
 
 ### Body tracking
