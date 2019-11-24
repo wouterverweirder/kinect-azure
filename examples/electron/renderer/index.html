@@ -22,23 +22,48 @@
           <div class="bd-toc-item active">
             <ul class="nav bd-sidenav">
               <li><a href="demos/color-stream-jpeg.html" target="viewer">color stream (jpeg)</a></li>
+              <li><a href="demos/color-stream-bgra32.html" target="viewer">color stream (bgra32)</a></li>
               <li><a href="demos/depth-stream-colored.html" target="viewer">depth stream (colored)</a></li>
               <li><a href="demos/depth-stream-greyscale.html" target="viewer">depth stream (greyscale)</a></li>
+              <li><a href="demos/depth-stream-wfov-colored.html" target="viewer">depth stream (wfov, colored)</a></li>
+              <li><a href="demos/depth-stream-wfov-greyscale.html" target="viewer">depth stream (wfov, greyscale)</a></li>
+              <li><a href="demos/ir-stream-passive.html" target="viewer">ir stream (passive)</a></li>
+              <li><a href="demos/ir-stream-nfov.html" target="viewer">ir stream (nfov)</a></li>
+              <li><a href="demos/ir-stream-wfov.html" target="viewer">ir stream (wfov)</a></li>
               <li><a href="demos/body-tracking-skeleton-3d.html" target="viewer">body tracking (3D)</a></li>
             </ul>
           </div>
         </nav>
       </div>
-      <webview class="col pr-0" id="viewer" name="viewer" src="demos/color-stream-jpeg.html" nodeintegration>
+      <webview class="col pr-0" id="viewer" name="viewer" nodeintegration>
       </webview>
     </div>
     <script>
     {
+      // show demo links in the webview
       const $viewer = document.getElementById('viewer');
-      document.querySelectorAll('[target="viewer"]').forEach(link => {
+      const demoLinks = Array.from(document.querySelectorAll('[target="viewer"]'));
+
+      const timeOut = ms => {
+        return new Promise(resolve => {
+          setTimeout(() => resolve(), ms);
+        });
+      };
+
+      const loadDemo = url => {
+        // show a preloader first, to allow some time for previous demo to shut down
+        $viewer.src = "loading.html";
+        timeOut(500).then(() => {
+          $viewer.src = url;
+        });
+      };
+
+      loadDemo(demoLinks[0].href);
+
+      demoLinks.forEach(link => {
         link.addEventListener('click', e => {
           e.preventDefault();
-          $viewer.src = link.href;
+          loadDemo(link.href);
         });
       });
     }

@@ -188,6 +188,16 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         data.Set(Napi::String::New(env, "depthImageFrame"), depthImageFrame);
       }
       {
+        Napi::Object irImageFrame = Napi::Object::New(env);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.irImageFrame.image_data, jsFrame.irImageFrame.image_length);
+        irImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
+        irImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.irImageFrame.image_length));
+        irImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.irImageFrame.width));
+        irImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.irImageFrame.height));
+        irImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.irImageFrame.stride_bytes));
+        data.Set(Napi::String::New(env, "irImageFrame"), irImageFrame);
+      }
+      {
         #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
         Napi::Object bodyFrame = Napi::Object::New(env);
         {
@@ -250,17 +260,34 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (g_deviceConfig.depth_mode != K4A_DEPTH_MODE_OFF)
       {
         // printf("[kinect_azure.cc] k4a_capture_get_depth_image\n");
-        k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
-        if (depth_image != NULL)
+        // if it is not passive IR, capture the depth image
+        if (g_deviceConfig.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
         {
-          jsFrame.depthImageFrame.image_length = k4a_image_get_size(depth_image);
-          jsFrame.depthImageFrame.width = k4a_image_get_width_pixels(depth_image);
-          jsFrame.depthImageFrame.height = k4a_image_get_height_pixels(depth_image);
-          jsFrame.depthImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_image);
-          jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
-          uint8_t* image_data = k4a_image_get_buffer(depth_image);
-          memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
-          k4a_image_release(depth_image);
+          k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
+          if (depth_image != NULL)
+          {
+            jsFrame.depthImageFrame.image_length = k4a_image_get_size(depth_image);
+            jsFrame.depthImageFrame.width = k4a_image_get_width_pixels(depth_image);
+            jsFrame.depthImageFrame.height = k4a_image_get_height_pixels(depth_image);
+            jsFrame.depthImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_image);
+            jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
+            uint8_t* image_data = k4a_image_get_buffer(depth_image);
+            memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
+            k4a_image_release(depth_image);
+          }
+        }
+        // capture the IR image
+        k4a_image_t ir_image = k4a_capture_get_ir_image(sensor_capture);
+        if (ir_image != NULL)
+        {
+          jsFrame.irImageFrame.image_length = k4a_image_get_size(ir_image);
+          jsFrame.irImageFrame.width = k4a_image_get_width_pixels(ir_image);
+          jsFrame.irImageFrame.height = k4a_image_get_height_pixels(ir_image);
+          jsFrame.irImageFrame.stride_bytes = k4a_image_get_stride_bytes(ir_image);
+          jsFrame.irImageFrame.image_data = new uint8_t[jsFrame.irImageFrame.image_length];
+          uint8_t* image_data = k4a_image_get_buffer(ir_image);
+          memcpy(jsFrame.irImageFrame.image_data, image_data, jsFrame.irImageFrame.image_length);
+          k4a_image_release(ir_image);
         }
       }
       if (g_deviceConfig.color_resolution != K4A_COLOR_RESOLUTION_OFF)

@@ -8,6 +8,7 @@ Features:
 
 - get rgb camera feed
 - get depth feed
+- get ir feed
 - get skeleton joints (3d)
 
 Coming later:
