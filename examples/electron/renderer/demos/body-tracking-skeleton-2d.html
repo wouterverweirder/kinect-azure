@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+        <h1 class="bd-title">Body Tracking (2D)</h1>
+        <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+      </div>
+      <p>
+        This demo shows the 2D Skeleton Information.
+      </p>
+    <canvas id="outputCanvas" class="img-fluid"></canvas>
+    <script>
+      {
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+
+        const $outputCanvas = document.getElementById('outputCanvas'),
+          outputCtx = $outputCanvas.getContext('2d');
+        let outputImageData;
+
+        const init = () => {
+          startKinect();
+        };
+
+        const startKinect = () => {
+          if(kinect.open()) {
+
+            kinect.startCameras({
+              depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
+              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_1080P,
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30
+            });
+            kinect.createTracker();
+
+            kinect.startListening((data) => {
+              if (!outputImageData && data.colorImageFrame.width > 0) {
+                $outputCanvas.width = data.colorImageFrame.width;
+                $outputCanvas.height = data.colorImageFrame.height;
+                outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
+              }
+              if (outputImageData) {
+                renderBGRA32ColorFrame(data);
+              }
+              if (data.bodyFrame.bodies) {
+                console.log(data.bodyFrame.bodies);
+                // render the skeleton joints on top of the color feed
+                outputCtx.save();
+                outputCtx.fillStyle = 'red';
+                data.bodyFrame.bodies.forEach(body => {
+                  body.skeleton.joints.forEach(joint => {
+                    outputCtx.fillRect(joint.colorX, joint.colorY, 10, 10);
+                  });
+                });
+                outputCtx.restore();
+              }
+            });
+          }
+        };
+
+        const renderBGRA32ColorFrame = (data) => {
+          const newPixelData = Buffer.from(data.colorImageFrame.imageData);
+          const pixelArray = outputImageData.data;
+          for (let i = 0; i < outputImageData.data.length; i+=4) {
+            pixelArray[i] = newPixelData[i+2];
+            pixelArray[i+1] = newPixelData[i+1];
+            pixelArray[i+2] = newPixelData[i];
+            pixelArray[i+3] = 0xff;
+          }
+          outputCtx.putImageData(outputImageData, 0, 0);
+        };
+
+        init();
+      }
+    </script>
+  </body>
+</html>

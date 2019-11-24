@@ -11,6 +11,7 @@
 
 k4a_device_t g_device = NULL;
 k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+k4a_calibration_t g_calibration;
 
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 k4abt_tracker_t g_tracker = NULL;
@@ -68,30 +69,40 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   // deviceConfig.synchronized_images_only = false;
   Napi::Object js_config =  info[0].As<Napi::Object>();
   Napi::Value js_camera_fps = js_config.Get("camera_fps");
-  if (js_camera_fps.IsNumber()) {
+  if (js_camera_fps.IsNumber())
+  {
     // printf("[kinect_azure.cc] deviceConfig set camera_fps\n");
     deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_color_format = js_config.Get("color_format");
-  if (js_color_format.IsNumber()) {
+  if (js_color_format.IsNumber())
+  {
     // printf("[kinect_azure.cc] deviceConfig set color_format\n");
     deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_color_resolution = js_config.Get("color_resolution");
-  if (js_color_resolution.IsNumber()) {
+  if (js_color_resolution.IsNumber())
+  {
     // printf("[kinect_azure.cc] deviceConfig set color_resolution\n");
     deviceConfig.color_resolution = (k4a_color_resolution_t) js_color_resolution.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_depth_mode = js_config.Get("depth_mode");
-  if (js_depth_mode.IsNumber()) {
+  if (js_depth_mode.IsNumber())
+  {
     // printf("[kinect_azure.cc] deviceConfig set depth_mode\n");
     deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
   }
   g_deviceConfig = deviceConfig;
   k4a_device_start_cameras(g_device, &g_deviceConfig);
+
+  // get calibration info if both depth and color are active
+  if (g_deviceConfig.depth_mode > K4A_DEPTH_MODE_OFF && g_deviceConfig.color_resolution > K4A_COLOR_RESOLUTION_OFF)
+  {
+    k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
+  }
 
   return Napi::Boolean::New(env, true);
 }
@@ -220,6 +231,12 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
                 joint.Set(Napi::String::New(env, "orientationY"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationY));
                 joint.Set(Napi::String::New(env, "orientationZ"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationZ));
                 joint.Set(Napi::String::New(env, "orientationW"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationW));
+                
+                joint.Set(Napi::String::New(env, "colorX"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorX));
+                joint.Set(Napi::String::New(env, "colorY"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorY));
+                
+                joint.Set(Napi::String::New(env, "depthX"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthX));
+                joint.Set(Napi::String::New(env, "depthY"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthY));
                 
                 joint.Set(Napi::String::New(env, "confidence"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].confidence));
 
@@ -352,6 +369,21 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationY = joint.orientation.wxyz.y;
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationZ = joint.orientation.wxyz.z;
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationW = joint.orientation.wxyz.w;
+
+              k4a_float2_t point2d;
+              int valid;
+              k4a_calibration_3d_to_2d(&g_calibration, &joint.position, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_COLOR, &point2d, &valid);
+              if (valid)
+              {
+                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorX = point2d.xy.x;
+                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorY = point2d.xy.y;
+              }
+              k4a_calibration_3d_to_2d(&g_calibration, &joint.position, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &point2d, &valid);
+              if (valid)
+              {
+                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthX = point2d.xy.x;
+                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthY = point2d.xy.y;
+              }
 
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].confidence = joint.confidence_level;
             }

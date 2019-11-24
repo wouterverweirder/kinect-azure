@@ -13,6 +13,12 @@ typedef struct _JSJoint
 	float orientationZ = 0;
 	float orientationW = 0;
 	//
+	float colorX = 0;
+	float colorY = 0;
+	//
+	float depthX = 0;
+	float depthY = 0;
+	//
 	int confidence = 0;
 } JSJoint;
 

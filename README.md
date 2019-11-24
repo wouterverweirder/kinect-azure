@@ -2,18 +2,17 @@
 
 This library enables you to use the Azure Kinect in your nodejs or electron apps.
 
-![screenshot of camera feeds](examples/screenshots/screenshot-rgb-depth.png)
+![screenshot of skeleton 2d demo](examples/screenshots/screenshot-demos-body-tracking-2d.png)
 
 Features:
 
 - get rgb camera feed
 - get depth feed
 - get ir feed
-- get skeleton joints (3d)
+- get skeleton joints (2d and 3d)
 
 Coming later:
 
-- map skeleton joints to 2d space
 - user masking
 - point cloud
 
