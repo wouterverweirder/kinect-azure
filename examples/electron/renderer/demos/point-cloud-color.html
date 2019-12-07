@@ -8,11 +8,11 @@
   </head>
   <body class="container-fluid py-3">
     <div class="d-flex align-items-baseline justify-content-between">
-      <h1 class="bd-title">Point Cloud (Greyscale)</h1>
+      <h1 class="bd-title">Point Cloud (Color)</h1>
       <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
     </div>
     <p>
-      This demo shows the greyscale point cloud in a three.js 3D environment.
+      This demo shows the colored point cloud in a three.js 3D environment.
     </p>
     <div class="embed-responsive embed-responsive-16by9 mb-3">
       <canvas class="embed-responsive-item" id="outputCanvas"></canvas>
@@ -54,7 +54,9 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         
         const geom = new THREE.Geometry();
-        const material = new THREE.PointsMaterial();
+        const material = new THREE.PointsMaterial({
+          vertexColors: THREE.VertexColors
+        });
 
         const DEPTH_WIDTH = 640;
         const DEPTH_HEIGHT = 576;
@@ -64,6 +66,8 @@
           const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
           const particle = new THREE.Vector3(x, y, 0);
           geom.vertices.push(particle);
+          const color = new THREE.Color(0x000000);
+          geom.colors.push(color);
         }
 
         const cloud = new THREE.Points(geom, material);
@@ -73,22 +77,32 @@
 
         if(kinect.open()) {
           kinect.startCameras({
-            depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED
+            depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+            color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
+            color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
+            include_color_to_depth: true
           });
           kinect.startListening((data) => {
             statsKinect.update();
             const newDepthData = Buffer.from(data.depthImageFrame.imageData);
+            const newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
             let pointIndex = 0;
+            console.log(newColorData);
             for (let i = 0; i < newDepthData.length; i+=2) {
               const depthValue = newDepthData[i+1] << 8 | newDepthData[i];
+              const b = newColorData[pointIndex * 4 + 0];
+              const g = newColorData[pointIndex * 4 + 1];
+              const r = newColorData[pointIndex * 4 + 2];
               if (depthValue > depthModeRange.min && depthValue < depthModeRange.max) {
                 geom.vertices[pointIndex].z = depthValue;
               } else {
                 geom.vertices[pointIndex].z = Number.MAX_VALUE;
               }
+              geom.colors[pointIndex].setRGB(r/255, g/255, b/255);
               pointIndex++;
             }
             geom.verticesNeedUpdate = true;
+            geom.colorsNeedUpdate = true;
           });
         }
 

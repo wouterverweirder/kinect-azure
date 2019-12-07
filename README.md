@@ -9,12 +9,13 @@ Features:
 - get rgb camera feed
 - get depth feed
 - get ir feed
+- transform between color and depth feed
+- point cloud (greyscale and colored)
 - get skeleton joints (2d and 3d)
 
 Coming later:
 
 - user masking
-- point cloud
 
 ## Installation
 
