@@ -11,7 +11,9 @@
 
 k4a_device_t g_device = NULL;
 k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+CustomDeviceConfig g_customDeviceConfig;
 k4a_calibration_t g_calibration;
+k4a_transformation_t transformer = NULL;
 
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 k4abt_tracker_t g_tracker = NULL;
@@ -71,45 +73,49 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   Napi::Value js_camera_fps = js_config.Get("camera_fps");
   if (js_camera_fps.IsNumber())
   {
-    // printf("[kinect_azure.cc] deviceConfig set camera_fps\n");
     deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_color_format = js_config.Get("color_format");
   if (js_color_format.IsNumber())
   {
-    // printf("[kinect_azure.cc] deviceConfig set color_format\n");
     deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_color_resolution = js_config.Get("color_resolution");
   if (js_color_resolution.IsNumber())
   {
-    // printf("[kinect_azure.cc] deviceConfig set color_resolution\n");
     deviceConfig.color_resolution = (k4a_color_resolution_t) js_color_resolution.As<Napi::Number>().Int32Value();
   }
 
   Napi::Value js_depth_mode = js_config.Get("depth_mode");
   if (js_depth_mode.IsNumber())
   {
-    // printf("[kinect_azure.cc] deviceConfig set depth_mode\n");
     deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
   }
+
+  g_customDeviceConfig.reset();
+  Napi::Value js_include_depth_to_color = js_config.Get("include_depth_to_color");
+  if (js_include_depth_to_color.IsBoolean())
+  {
+    g_customDeviceConfig.include_depth_to_color = js_include_depth_to_color.As<Napi::Boolean>();
+  }
+  Napi::Value js_include_color_to_depth = js_config.Get("include_color_to_depth");
+  if (js_include_color_to_depth.IsBoolean())
+  {
+    g_customDeviceConfig.include_color_to_depth = js_include_color_to_depth.As<Napi::Boolean>();
+  }
+
   g_deviceConfig = deviceConfig;
   k4a_device_start_cameras(g_device, &g_deviceConfig);
 
-  // get calibration info if both depth and color are active
-  if (g_deviceConfig.depth_mode > K4A_DEPTH_MODE_OFF && g_deviceConfig.color_resolution > K4A_COLOR_RESOLUTION_OFF)
-  {
-    k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
-  }
+  k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
 
   return Napi::Boolean::New(env, true);
 }
 
 Napi::Value MethodStopCameras(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // printf("[kinect_azure.cc] MethodStopCameras\n");
   k4a_device_stop_cameras(g_device);
   return Napi::Boolean::New(env, true);
 }
@@ -152,6 +158,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   } else if (!info[0].IsFunction()){
     throw Napi::TypeError::New( env, "Expected first arg to be function" );
   }
+
+  transformer = k4a_transformation_create( &g_calibration );
   
   tsfn = Napi::ThreadSafeFunction::New(
     env,
@@ -207,6 +215,26 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         irImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.irImageFrame.height));
         irImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.irImageFrame.stride_bytes));
         data.Set(Napi::String::New(env, "irImageFrame"), irImageFrame);
+      }
+      {
+        Napi::Object depthToColorImageFrame = Napi::Object::New(env);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.depthToColorImageFrame.image_data, jsFrame.depthToColorImageFrame.image_length);
+        depthToColorImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
+        depthToColorImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.image_length));
+        depthToColorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.width));
+        depthToColorImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.height));
+        depthToColorImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.stride_bytes));
+        data.Set(Napi::String::New(env, "depthToColorImageFrame"), depthToColorImageFrame);
+      }
+      {
+        Napi::Object colorToDepthImageFrame = Napi::Object::New(env);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.colorToDepthImageFrame.image_data, jsFrame.colorToDepthImageFrame.image_length);
+        colorToDepthImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
+        colorToDepthImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.image_length));
+        colorToDepthImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.width));
+        colorToDepthImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.height));
+        colorToDepthImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.stride_bytes));
+        data.Set(Napi::String::New(env, "colorToDepthImageFrame"), colorToDepthImageFrame);
       }
       {
         #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
@@ -274,13 +302,18 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       mtx.lock();
       // printf("[kinect_azure.cc] jsFrame.reset\n");
       jsFrame.reset();
+      k4a_image_t color_image = NULL;
+      k4a_image_t depth_image = NULL;
+      k4a_image_t ir_image = NULL;
+      k4a_image_t depth_to_color_image = NULL;
+      k4a_image_t color_to_depth_image = NULL;
       if (g_deviceConfig.depth_mode != K4A_DEPTH_MODE_OFF)
       {
         // printf("[kinect_azure.cc] k4a_capture_get_depth_image\n");
         // if it is not passive IR, capture the depth image
         if (g_deviceConfig.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
         {
-          k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
+          depth_image = k4a_capture_get_depth_image(sensor_capture);
           if (depth_image != NULL)
           {
             jsFrame.depthImageFrame.image_length = k4a_image_get_size(depth_image);
@@ -290,11 +323,10 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
             uint8_t* image_data = k4a_image_get_buffer(depth_image);
             memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
-            k4a_image_release(depth_image);
           }
         }
         // capture the IR image
-        k4a_image_t ir_image = k4a_capture_get_ir_image(sensor_capture);
+        ir_image = k4a_capture_get_ir_image(sensor_capture);
         if (ir_image != NULL)
         {
           jsFrame.irImageFrame.image_length = k4a_image_get_size(ir_image);
@@ -304,13 +336,12 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.irImageFrame.image_data = new uint8_t[jsFrame.irImageFrame.image_length];
           uint8_t* image_data = k4a_image_get_buffer(ir_image);
           memcpy(jsFrame.irImageFrame.image_data, image_data, jsFrame.irImageFrame.image_length);
-          k4a_image_release(ir_image);
         }
       }
       if (g_deviceConfig.color_resolution != K4A_COLOR_RESOLUTION_OFF)
       {
         // printf("[kinect_azure.cc] k4a_capture_get_color_image\n");
-        k4a_image_t color_image = k4a_capture_get_color_image(sensor_capture);
+        color_image = k4a_capture_get_color_image(sensor_capture);
         if (color_image != NULL)
         {
           jsFrame.colorImageFrame.image_length = k4a_image_get_size(color_image);
@@ -320,8 +351,65 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
           uint8_t* image_data = k4a_image_get_buffer(color_image);
           memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
-          k4a_image_release(color_image);
         }
+      }
+      if (g_customDeviceConfig.include_depth_to_color)
+      {
+        if(k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16, jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height, jsFrame.colorImageFrame.width * 2, &depth_to_color_image) == K4A_RESULT_SUCCEEDED)
+        {
+          if(k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
+          {
+            jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
+            jsFrame.depthToColorImageFrame.width = k4a_image_get_width_pixels(depth_to_color_image);
+            jsFrame.depthToColorImageFrame.height = k4a_image_get_height_pixels(depth_to_color_image);
+            jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
+            jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
+            uint8_t* image_data = k4a_image_get_buffer(depth_to_color_image);
+            memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
+          }
+        }
+      }
+      if (g_customDeviceConfig.include_color_to_depth)
+      {
+        if(k4a_image_create(K4A_IMAGE_FORMAT_COLOR_BGRA32, jsFrame.depthImageFrame.width, jsFrame.depthImageFrame.height, jsFrame.depthImageFrame.width * 4, &color_to_depth_image) == K4A_RESULT_SUCCEEDED)
+        {
+          if(k4a_transformation_color_image_to_depth_camera(transformer, depth_image, color_image, color_to_depth_image) == K4A_RESULT_SUCCEEDED)
+          {
+            jsFrame.colorToDepthImageFrame.image_length = k4a_image_get_size(color_to_depth_image);
+            jsFrame.colorToDepthImageFrame.width = k4a_image_get_width_pixels(color_to_depth_image);
+            jsFrame.colorToDepthImageFrame.height = k4a_image_get_height_pixels(color_to_depth_image);
+            jsFrame.colorToDepthImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_to_depth_image);
+            jsFrame.colorToDepthImageFrame.image_data = new uint8_t[jsFrame.colorToDepthImageFrame.image_length];
+            uint8_t* image_data = k4a_image_get_buffer(color_to_depth_image);
+            memcpy(jsFrame.colorToDepthImageFrame.image_data, image_data, jsFrame.colorToDepthImageFrame.image_length);
+          }
+        }
+      }
+      // release the image handles
+      if (depth_image != NULL)
+      {
+        k4a_image_release(depth_image);
+        depth_image = NULL;
+      }
+      if (color_image != NULL)
+      {
+        k4a_image_release(color_image);
+        color_image = NULL;
+      }
+      if (ir_image != NULL)
+      {
+        k4a_image_release(ir_image);
+        ir_image = NULL;
+      }
+      if (depth_to_color_image != NULL)
+      {
+        k4a_image_release(depth_to_color_image);
+        depth_to_color_image = NULL;
+      }
+      if (color_to_depth_image != NULL)
+      {
+        k4a_image_release(color_to_depth_image);
+        color_to_depth_image = NULL;
       }
       #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
       // printf("[kinect_azure.cc] check tracker\n");
@@ -423,6 +511,13 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         //  printf("[kinect_azure.cc] BlockingCall Done\n");
       }
     }
+
+
+    if (transformer != NULL)
+    {
+      k4a_transformation_destroy(transformer);
+    }
+
     is_listening = false;
     // printf("[kinect_azure.cc] reset jsFrame\n");
     jsFrame.reset();

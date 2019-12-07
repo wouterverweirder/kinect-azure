@@ -74,6 +74,8 @@ typedef struct _JSFrame
 	JSImageFrame colorImageFrame;
 	JSImageFrame depthImageFrame;
 	JSImageFrame irImageFrame;
+	JSImageFrame depthToColorImageFrame;
+	JSImageFrame colorToDepthImageFrame;
 	void reset() {
 		#ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 		bodyFrame.reset();
@@ -81,7 +83,20 @@ typedef struct _JSFrame
 		colorImageFrame.reset();
 		depthImageFrame.reset();
 		irImageFrame.reset();
+		depthToColorImageFrame.reset();
+		colorToDepthImageFrame.reset();
 	}
 } JSFrame;
+
+typedef struct _CustomDeviceConfig
+{
+	bool include_depth_to_color = false;
+	bool include_color_to_depth = false;
+
+	void reset() {
+		include_depth_to_color = false;
+		include_color_to_depth = false;
+	}
+} CustomDeviceConfig;
 
 #endif

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+      <h1 class="bd-title">Transform images between camera viewpoints</h1>
+      <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+    </div>
+    <p>
+      This demo shows transforming the depth image to color space and transforming the color image to depth space.<br />
+      The color_format needs to be KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32 for this to work.
+    </p>
+    <div class="row mb-3">
+      <div class="col-8">
+        <p class="mb-1">Color image:</p>
+        <canvas id="colorCanvas" class="img-fluid"></canvas>
+      </div>
+      <div class="col-4">
+        <p class="mb-1">Depth image:</p>
+        <canvas id="depthCanvas" class="img-fluid"></canvas>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-8">
+        <p class="mb-1">Depth stream in color space:</p>
+        <canvas id="depthToColorCanvas" class="img-fluid"></canvas>
+      </div>
+      <div class="col-4">
+        <p class="mb-1">Color stream in depth space:</p>
+        <canvas id="colorToDepthCanvas" class="img-fluid"></canvas>
+      </div>
+    </div>
+    <script>
+      {
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+
+        let depthModeRange;
+
+        const $colorCanvas = document.getElementById('colorCanvas'),
+          colorCtx = $colorCanvas.getContext('2d');
+        let colorImageData;
+
+        const $depthCanvas = document.getElementById('depthCanvas'),
+          depthCtx = $depthCanvas.getContext('2d');
+        let depthImageData;
+
+        const $depthToColorCanvas = document.getElementById('depthToColorCanvas'),
+          depthToColorCtx = $depthToColorCanvas.getContext('2d');
+        let depthToColorImageData;
+
+        const $colorToDepthCanvas = document.getElementById('colorToDepthCanvas'),
+          colorToDepthCtx = $colorToDepthCanvas.getContext('2d');
+        let colorToDepthImageData;
+
+        const init = () => {
+          startKinect();
+        };
+
+        const startKinect = () => {
+          if(kinect.open()) {
+
+            const depthMode = KinectAzure.K4A_DEPTH_MODE_WFOV_2X2BINNED;
+
+            kinect.startCameras({
+              depth_mode: depthMode,
+              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
+              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30,
+              include_depth_to_color: true,
+              include_color_to_depth: true
+            });
+            depthModeRange = kinect.getDepthModeRange(depthMode);
+
+            kinect.startListening((data) => {
+              // depth
+              if (!depthImageData && data.depthImageFrame.width > 0) {
+                $depthCanvas.width = data.depthImageFrame.width;
+                $depthCanvas.height = data.depthImageFrame.height;
+                depthImageData = depthCtx.createImageData($depthCanvas.width, $depthCanvas.height);
+              }
+              if (depthImageData) {
+                renderDepthFrameAsBlueToRed(depthCtx, depthImageData, data.depthImageFrame);
+              }
+              // color
+              if (!colorImageData && data.colorImageFrame.width > 0) {
+                $colorCanvas.width = data.colorImageFrame.width;
+                $colorCanvas.height = data.colorImageFrame.height;
+                colorImageData = colorCtx.createImageData($colorCanvas.width, $colorCanvas.height);
+              }
+              if (colorImageData) {
+                renderBGRA32ColorFrame(colorCtx, colorImageData, data.colorImageFrame);
+              }
+              // depth to color
+              if (!depthToColorImageData && data.depthToColorImageFrame.width > 0) {
+                $depthToColorCanvas.width = data.depthToColorImageFrame.width;
+                $depthToColorCanvas.height = data.depthToColorImageFrame.height;
+                depthToColorImageData = depthToColorCtx.createImageData($depthToColorCanvas.width, $depthToColorCanvas.height);
+              }
+              if (depthToColorImageData) {
+                renderDepthFrameAsBlueToRed(depthToColorCtx, depthToColorImageData, data.depthToColorImageFrame);
+              }
+              // color to depth
+              console.log(data.colorToDepthImageFrame);
+              if (!colorToDepthImageData && data.colorToDepthImageFrame.width > 0) {
+                $colorToDepthCanvas.width = data.colorToDepthImageFrame.width;
+                $colorToDepthCanvas.height = data.colorToDepthImageFrame.height;
+                colorToDepthImageData = colorToDepthCtx.createImageData($colorToDepthCanvas.width, $colorToDepthCanvas.height);
+              }
+              if (colorToDepthImageData) {
+                renderBGRA32ColorFrame(colorToDepthCtx, colorToDepthImageData, data.colorToDepthImageFrame);
+              }
+            });
+          }
+        };
+
+        const renderBGRA32ColorFrame = (ctx, canvasImageData, imageFrame) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
+            pixelArray[i] = newPixelData[i+2];
+            pixelArray[i+1] = newPixelData[i+1];
+            pixelArray[i+2] = newPixelData[i];
+            pixelArray[i+3] = 0xff;
+          }
+          ctx.putImageData(canvasImageData, 0, 0);
+        };
+
+        const renderDepthFrameAsBlueToRed = (ctx, canvasImageData, imageFrame) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
+          let depthPixelIndex = 0;
+          const range = 2 / 3;
+
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
+            const depthValue = Math.min(depthModeRange.max, Math.max(depthModeRange.min, newPixelData[depthPixelIndex+1] << 8 | newPixelData[depthPixelIndex]));
+            let hue = map(depthValue, depthModeRange.min, depthModeRange.max, 0, 1);
+            hue *= range;
+            hue = range - hue;
+            const rgb = hsvToRgb(hue, 1, 1);
+
+            pixelArray[i] = rgb[0];
+            pixelArray[i+1] = rgb[1];
+            pixelArray[i+2] = rgb[2];
+            pixelArray[i+3] = 0xff;
+            depthPixelIndex += 2;
+          }
+          ctx.putImageData(canvasImageData, 0, 0);
+        };
+
+        const map = (value, inputMin, inputMax, outputMin, outputMax) => {
+          return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+        };
+
+        /**
+         * https://gist.github.com/mjackson/5311256
+         * Converts an HSV color value to RGB. Conversion formula
+         * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+         * Assumes h, s, and v are contained in the set [0, 1] and
+         * returns r, g, and b in the set [0, 255].
+         *
+         * @param   Number  h       The hue
+         * @param   Number  s       The saturation
+         * @param   Number  v       The value
+         * @return  Array           The RGB representation
+         */
+        const hsvToRgb = (h, s, v) => {
+          let r, g, b;
+
+          const i = Math.floor(h * 6);
+          const f = h * 6 - i;
+          const p = v * (1 - s);
+          const q = v * (1 - f * s);
+          const t = v * (1 - (1 - f) * s);
+
+          switch (i % 6) {
+            case 0: r = v, g = t, b = p; break;
+            case 1: r = q, g = v, b = p; break;
+            case 2: r = p, g = v, b = t; break;
+            case 3: r = p, g = q, b = v; break;
+            case 4: r = t, g = p, b = v; break;
+            case 5: r = v, g = p, b = q; break;
+          }
+
+          return [ r * 255, g * 255, b * 255 ];
+        }
+
+        init();
+      }
+    </script>
+  </body>
+</html>
