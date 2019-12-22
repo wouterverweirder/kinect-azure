@@ -23,7 +23,7 @@
 
         const $depthCanvas = document.getElementById('depthCanvas'),
           depthCtx = $depthCanvas.getContext('2d');
-        let depthImageData, depthModeRange;
+        let depthImageData;
 
         const init = () => {
           startKinect();
@@ -37,7 +37,7 @@
             kinect.startCameras({
               depth_mode: depthMode
             });
-            depthModeRange = kinect.getDepthModeRange(depthMode);
+            const depthModeRange = kinect.getDepthModeRange(depthMode);
 
             kinect.startListening((data) => {
               $info.textContent = ` ${data.depthImageFrame.width}x${data.depthImageFrame.height}`;
@@ -47,19 +47,19 @@
                 depthImageData = depthCtx.createImageData($depthCanvas.width, $depthCanvas.height);
               }
               if (depthImageData) {
-                renderDepthFrameAsBlueToRed(data);
+                renderDepthFrameAsBlueToRed(depthCtx, depthImageData, data.depthImageFrame, depthModeRange);
               }
             });
           }
         };
 
-        const renderDepthFrameAsBlueToRed = (data) => {
-          const newPixelData = Buffer.from(data.depthImageFrame.imageData);
-          const pixelArray = depthImageData.data;
+        const renderDepthFrameAsBlueToRed = (ctx, canvasImageData, imageFrame, depthModeRange) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
           let depthPixelIndex = 0;
           const range = 2 / 3;
 
-          for (let i = 0; i < depthImageData.data.length; i+=4) {
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
             const depthValue = Math.min(depthModeRange.max, Math.max(depthModeRange.min, newPixelData[depthPixelIndex+1] << 8 | newPixelData[depthPixelIndex]));
             let hue = map(depthValue, depthModeRange.min, depthModeRange.max, 0, 1);
             hue *= range;
@@ -72,7 +72,7 @@
             pixelArray[i+3] = 0xff;
             depthPixelIndex += 2;
           }
-          depthCtx.putImageData(depthImageData, 0, 0);
+          ctx.putImageData(canvasImageData, 0, 0);
         };
 
         const map = (value, inputMin, inputMax, outputMin, outputMax) => {

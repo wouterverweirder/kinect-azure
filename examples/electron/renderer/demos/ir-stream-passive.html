@@ -44,27 +44,27 @@
                 outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
               }
               if (outputImageData) {
-                renderIrFrameAsGreyScale(data);
+                renderIrFrameAsGreyScale(outputCtx, outputImageData, data.irImageFrame);
               }
             });
           }
         };
 
-        const renderIrFrameAsGreyScale = (data) => {
-          const newPixelData = Buffer.from(data.irImageFrame.imageData);
-          const pixelArray = outputImageData.data;
+        const renderIrFrameAsGreyScale = (ctx, canvasImageData, imageFrame) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
           const maxValue = 255 << 8;
           let incomingPixelIndex = 0;
-          for (let i = 0; i < outputImageData.data.length; i+=4) {
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
             const irValue = newPixelData[incomingPixelIndex+1] << 8 | newPixelData[incomingPixelIndex];
-            const normalizedValue = irValue;
+            const normalizedValue = irValue;//map(irValue, 0, maxValue, 0, 255);
             pixelArray[i] = normalizedValue;
             pixelArray[i+1] = normalizedValue;
             pixelArray[i+2] = normalizedValue;
             pixelArray[i+3] = 0xff;
             incomingPixelIndex += 2;
           }
-          outputCtx.putImageData(outputImageData, 0, 0);
+          ctx.putImageData(canvasImageData, 0, 0);
         };
 
         init();

@@ -46,22 +46,22 @@
                 outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
               }
               if (outputImageData) {
-                renderBGRA32ColorFrame(data);
+                renderBGRA32ColorFrame(outputCtx, outputImageData, data.colorImageFrame);
               }
             });
           }
         };
 
-        const renderBGRA32ColorFrame = (data) => {
-          const newPixelData = Buffer.from(data.colorImageFrame.imageData);
-          const pixelArray = outputImageData.data;
-          for (let i = 0; i < outputImageData.data.length; i+=4) {
+        const renderBGRA32ColorFrame = (ctx, canvasImageData, imageFrame) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
             pixelArray[i] = newPixelData[i+2];
             pixelArray[i+1] = newPixelData[i+1];
             pixelArray[i+2] = newPixelData[i];
             pixelArray[i+3] = 0xff;
           }
-          outputCtx.putImageData(outputImageData, 0, 0);
+          ctx.putImageData(canvasImageData, 0, 0);
         };
 
         init();

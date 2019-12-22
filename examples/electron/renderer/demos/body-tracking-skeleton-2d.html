@@ -35,7 +35,7 @@
 
         const $outputCanvas = document.getElementById('outputCanvas'),
           outputCtx = $outputCanvas.getContext('2d');
-        let outputImageData;
+        let outputImageData, depthModeRange;
 
         const init = () => {
           startKinect();
@@ -46,25 +46,22 @@
           if(kinect.open()) {
 
             kinect.startCameras({
-              depth_mode: KinectAzure.K4A_DEPTH_MODE_WFOV_2X2BINNED,
-              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
-              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
-              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30
+              depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED
             });
+            depthModeRange = kinect.getDepthModeRange(KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED);
             kinect.createTracker();
 
             kinect.startListening((data) => {
               statsKinect.update();
-              if (!outputImageData && data.colorImageFrame.width > 0) {
-                $outputCanvas.width = data.colorImageFrame.width;
-                $outputCanvas.height = data.colorImageFrame.height;
+              if (!outputImageData && data.depthImageFrame.width > 0) {
+                $outputCanvas.width = data.depthImageFrame.width;
+                $outputCanvas.height = data.depthImageFrame.height;
                 outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
               }
               if (outputImageData) {
-                renderBGRA32ColorFrame(data);
+                renderDepthFrameAsGreyScale(outputCtx, outputImageData, data.depthImageFrame);
               }
               if (data.bodyFrame.bodies) {
-                console.log(data.bodyFrame.bodies);
                 // render the skeleton joints on top of the color feed
                 outputCtx.save();
                 outputCtx.fillStyle = 'red';
@@ -79,16 +76,24 @@
           }
         };
 
-        const renderBGRA32ColorFrame = (data) => {
-          const newPixelData = Buffer.from(data.colorImageFrame.imageData);
-          const pixelArray = outputImageData.data;
-          for (let i = 0; i < outputImageData.data.length; i+=4) {
-            pixelArray[i] = newPixelData[i+2];
-            pixelArray[i+1] = newPixelData[i+1];
-            pixelArray[i+2] = newPixelData[i];
+        const renderDepthFrameAsGreyScale = (ctx, canvasImageData, imageFrame) => {
+          const newPixelData = Buffer.from(imageFrame.imageData);
+          const pixelArray = canvasImageData.data;
+          let depthPixelIndex = 0;
+          for (let i = 0; i < canvasImageData.data.length; i+=4) {
+            const depthValue = newPixelData[depthPixelIndex+1] << 8 | newPixelData[depthPixelIndex];
+            const normalizedValue = map(depthValue, depthModeRange.min, depthModeRange.max, 255, 0);
+            pixelArray[i] = normalizedValue;
+            pixelArray[i+1] = normalizedValue;
+            pixelArray[i+2] = normalizedValue;
             pixelArray[i+3] = 0xff;
+            depthPixelIndex += 2;
           }
-          outputCtx.putImageData(outputImageData, 0, 0);
+          ctx.putImageData(canvasImageData, 0, 0);
+        };
+
+        const map = (value, inputMin, inputMax, outputMin, outputMax) => {
+          return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
         };
 
         const animate = () => {
