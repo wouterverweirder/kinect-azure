@@ -295,7 +295,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (get_capture_result != K4A_WAIT_RESULT_SUCCEEDED)
       {
         // printf("[kinect_azure.cc] get_capture_result != K4A_WAIT_RESULT_SUCCEEDED\n");
-
         continue;
       }
       // Create new data
@@ -416,26 +415,21 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (g_tracker != NULL)
       {
         // printf("[kinect_azure.cc] k4abt_tracker_enqueue_capture\n");
-        k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(g_tracker, sensor_capture, K4A_WAIT_INFINITE);
-        if (queue_capture_result == K4A_WAIT_RESULT_TIMEOUT)
-        {
-          // It should never hit timeout when K4A_WAIT_INFINITE is set.
-          // printf("[kinect_azure.cc] Error! Add capture to tracker process queue timeout!\n");
-          break;
-        }
-        else if (queue_capture_result == K4A_WAIT_RESULT_FAILED)
+        k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(g_tracker, sensor_capture, 0);
+        if (queue_capture_result == K4A_WAIT_RESULT_FAILED)
         {
           // printf("[kinect_azure.cc] Error! Add capture to tracker process queue failed!\n");
           break;
         }
 
         k4abt_frame_t body_frame = NULL;
-        k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(g_tracker, &body_frame, K4A_WAIT_INFINITE);
+        k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(g_tracker, &body_frame, 0);
         if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED)
         {
           // Successfully popped the body tracking result. Start your processing
           size_t num_bodies = k4abt_frame_get_num_bodies(body_frame);
 
+          jsFrame.resetBodyFrame();
           jsFrame.bodyFrame.numBodies = num_bodies;
           jsFrame.bodyFrame.bodies = new JSBody[num_bodies];
 
@@ -460,6 +454,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
 
               k4a_float2_t point2d;
               int valid;
+
               k4a_calibration_3d_to_2d(&g_calibration, &joint.position, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_COLOR, &point2d, &valid);
               if (valid)
               {
@@ -478,17 +473,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           }
 
           k4abt_frame_release(body_frame); // Remember to release the body frame once you finish using it
-        }
-        else if (pop_frame_result == K4A_WAIT_RESULT_TIMEOUT)
-        {
-          //  It should never hit timeout when K4A_WAIT_INFINITE is set.
-          // printf("[kinect_azure.cc] Error! Pop body frame result timeout!\n");
-          break;
-        }
-        else
-        {
-          // printf("[kinect_azure.cc] Pop body frame result failed!\n");
-          break;
         }
       }
       #endif // KINECT_AZURE_ENABLE_BODY_TRACKING

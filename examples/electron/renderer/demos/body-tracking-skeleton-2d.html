@@ -15,8 +15,21 @@
         This demo shows the 2D Skeleton Information.
       </p>
     <canvas id="outputCanvas" class="img-fluid"></canvas>
+    <div class="row">
+      <div class="col col-auto">Renderer: <div id="statsRenderer"></div></div>
+      <div class="col col-auto">Kinect: <div id="statsKinect"></div></div>
+    </div>
+    
+    <script src="../assets/vendors/stats.min.js"></script>
     <script>
       {
+        const statsRenderer = new Stats();
+        statsRenderer.dom.style.cssText = '';
+        document.getElementById('statsRenderer').appendChild( statsRenderer.dom );
+        const statsKinect = new Stats();
+        statsKinect.dom.style.cssText = '';
+        document.getElementById('statsKinect').appendChild( statsKinect.dom );
+
         const KinectAzure = require('kinect-azure');
         const kinect = new KinectAzure();
 
@@ -26,20 +39,22 @@
 
         const init = () => {
           startKinect();
+          animate();
         };
 
         const startKinect = () => {
           if(kinect.open()) {
 
             kinect.startCameras({
-              depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+              depth_mode: KinectAzure.K4A_DEPTH_MODE_WFOV_2X2BINNED,
               color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
-              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_1080P,
+              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
               camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30
             });
             kinect.createTracker();
 
             kinect.startListening((data) => {
+              statsKinect.update();
               if (!outputImageData && data.colorImageFrame.width > 0) {
                 $outputCanvas.width = data.colorImageFrame.width;
                 $outputCanvas.height = data.colorImageFrame.height;
@@ -75,6 +90,11 @@
           }
           outputCtx.putImageData(outputImageData, 0, 0);
         };
+
+        const animate = () => {
+          statsRenderer.update();
+          requestAnimationFrame( animate );
+        }
 
         init();
       }

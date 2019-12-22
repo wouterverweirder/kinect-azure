@@ -77,14 +77,16 @@ typedef struct _JSFrame
 	JSImageFrame depthToColorImageFrame;
 	JSImageFrame colorToDepthImageFrame;
 	void reset() {
-		#ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
-		bodyFrame.reset();
-		#endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 		colorImageFrame.reset();
 		depthImageFrame.reset();
 		irImageFrame.reset();
 		depthToColorImageFrame.reset();
 		colorToDepthImageFrame.reset();
+	}
+	void resetBodyFrame() {
+		#ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
+		bodyFrame.reset();
+		#endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 	}
 } JSFrame;
 
