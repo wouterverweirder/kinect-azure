@@ -418,7 +418,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(g_tracker, sensor_capture, 0);
         if (queue_capture_result == K4A_WAIT_RESULT_FAILED)
         {
-          // printf("[kinect_azure.cc] Error! Add capture to tracker process queue failed!\n");
+          k4a_capture_release(sensor_capture);
+          mtx.unlock();
           break;
         }
 
@@ -480,6 +481,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
      
       if (!is_listening)
       {
+        mtx.unlock();
         break;
       }
       // Perform a blocking call
