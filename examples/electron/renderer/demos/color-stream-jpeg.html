@@ -70,6 +70,9 @@
           }
         };
 
+        // expose the kinect instance to the window object in this demo app to allow the parent window to close it between sessions
+        window.kinect = kinect;
+        // init the code
         init();
       }
     </script>

@@ -23,6 +23,7 @@ Napi::FunctionReference g_emit;
 std::thread nativeThread;
 std::mutex mtx;
 Napi::ThreadSafeFunction tsfn;
+std::mutex threadJoinedMutex;
 
 bool is_listening = false;
 
@@ -133,8 +134,10 @@ Napi::Value MethodCreateTracker(const Napi::CallbackInfo& info) {
 Napi::Value MethodDestroyTracker(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   // printf("[kinect_azure.cc] MethodDestroyTracker\n");
-  k4abt_tracker_shutdown(g_tracker);
-  k4abt_tracker_destroy(g_tracker);
+  if (g_tracker != NULL) {
+    k4abt_tracker_shutdown(g_tracker);
+    k4abt_tracker_destroy(g_tracker);
+  }
   g_tracker = NULL;
   return Napi::Boolean::New(env, true);
 }
@@ -160,7 +163,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   }
 
   transformer = k4a_transformation_create( &g_calibration );
-  
   tsfn = Napi::ThreadSafeFunction::New(
     env,
     info[0].As<Napi::Function>(),    // JavaScript function called asynchronously
@@ -168,12 +170,12 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
     1,                         // 1 call in queue
     1,                         // Only one thread will use this initially
     []( Napi::Env ) {          // Finalizer used to clean threads up
-      // printf("[kinect_azure.cc] Joining nativeThread\n");
       nativeThread.join();
-      // printf("[kinect_azure.cc] nativeThread Joined\n");
+      threadJoinedMutex.unlock();
     });
 
-   nativeThread = std::thread( [] {
+  threadJoinedMutex.lock();
+  nativeThread = std::thread( [] {
     auto callback = []( Napi::Env env, Napi::Function jsCallback, JSFrame* jsFrameRef ) {
       if (!is_listening) {
         // printf("[kinect_azure.cc] callback not listening\n");
@@ -510,10 +512,32 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
     // printf("[kinect_azure.cc] Release thread-safe function!\n");
     // Release the thread-safe function
     tsfn.Release();
+    // printf("[kinect_azure.cc] Thread-safe function released!\n");
   } );
 
   return Napi::Boolean::New(env, true);
 }
+
+class WaitForTheadJoinWorker : public Napi::AsyncWorker {
+  public:
+    WaitForTheadJoinWorker(Napi::Function& callback)
+    : AsyncWorker(callback) {}
+
+    ~WaitForTheadJoinWorker() {}
+  // This code will be executed on the worker thread
+  void Execute() override {
+    threadJoinedMutex.lock();
+  }
+
+  void OnOK() override {
+    threadJoinedMutex.unlock();
+    Napi::HandleScope scope(Env());
+    Callback().Call({Env().Null(), Napi::String::New(Env(), "OK")});
+  }
+
+  private:
+    std::string echo;
+};
 
 Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -524,7 +548,10 @@ Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
   }
   // printf("[kinect_azure.cc] MethodStopListening\n");
   is_listening = false;
-  return Napi::Boolean::New(env, true);
+  Napi::Function cb = info[0].As<Napi::Function>();
+  WaitForTheadJoinWorker* wk = new WaitForTheadJoinWorker(cb);
+  wk->Queue();
+  return info.Env().Undefined();
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {

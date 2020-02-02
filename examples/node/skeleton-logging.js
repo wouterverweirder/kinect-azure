@@ -3,7 +3,6 @@ const kinect = new KinectAzure();
 
 if(kinect.open()) {
   console.log("Kinect Opened");
-  
   kinect.startCameras({
     depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
     color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P

@@ -39,7 +39,7 @@
           </div>
         </nav>
       </div>
-      <webview class="col pr-0" id="viewer" name="viewer" nodeintegration>
+      <webview class="col pr-0" id="viewer" name="viewer" nodeintegration preload="./demo-preload.js">
       </webview>
     </div>
     <script>
@@ -56,8 +56,21 @@
 
       const loadDemo = url => {
         // show a preloader first, to allow some time for previous demo to shut down
-        $viewer.src = "loading.html";
-        timeOut(500).then(() => {
+        let demoPromise = Promise.resolve();
+        if ($viewer.getWebContents) {
+          demoPromise = demoPromise.then(() => {
+            return new Promise((resolve) => {
+              const contents = $viewer.getWebContents();
+              contents.once('ipc-message', (event, channel) => {
+                // kinect is closed now, load the next demo
+                console.log(channel);
+                resolve();
+              });
+              contents.send('close-kinect');
+            });
+          });
+        }
+        demoPromise.then(() => {
           $viewer.src = url;
         });
       };
