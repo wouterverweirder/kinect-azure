@@ -17,6 +17,8 @@
   "scripts": {
     "install": "node ./scripts/install.js && node-gyp rebuild",
     "clean": "node ./scripts/clean.js",
+    "build": "npm i && cd ./examples/electron && npm start",
+    "start": "cd ./examples/electron && npm start",
     "reinstall": "npm run clean && npm run install",
     "prepublishOnly": "rimraf ./examples/**/node_modules"
   },

@@ -14,6 +14,7 @@ k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
 CustomDeviceConfig g_customDeviceConfig;
 k4a_calibration_t g_calibration;
 k4a_transformation_t transformer = NULL;
+bool flipToRGBA = false;
 
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 k4abt_tracker_t g_tracker = NULL;
@@ -81,6 +82,11 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   if (js_color_format.IsNumber())
   {
     deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
+    // if color_format = K4A_IMAGE_FORMAT_COLOR_RGBA32, resign to K4A_IMAGE_FORMAT_COLOR_BGRA32
+    if (deviceConfig.color_format == (k4a_image_format_t) 8) {
+      deviceConfig.color_format = (k4a_image_format_t) 3;
+      flipToRGBA = true;
+    }
   }
 
   Napi::Value js_color_resolution = js_config.Get("color_resolution");
@@ -289,6 +295,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       mtx.unlock();
     };
 
+    uint8_t* rgba_data = NULL;
     JSFrame jsFrame;
     while(is_listening)
     {
@@ -351,7 +358,20 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
           uint8_t* image_data = k4a_image_get_buffer(color_image);
-          memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
+          if (flipToRGBA != true){
+            memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
+          } else {
+            if (rgba_data == NULL)
+              rgba_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+            
+            for( int i = 0; i < jsFrame.colorImageFrame.image_length; i+=4 ) {
+              rgba_data[i] = image_data[i+2];
+              rgba_data[i+1] = image_data[i+1];
+              rgba_data[i+2] = image_data[i];
+              rgba_data[i+3] = image_data[i+3];
+            }
+            memcpy(jsFrame.colorImageFrame.image_data, rgba_data, jsFrame.colorImageFrame.image_length);
+          }
         }
       }
       if (g_customDeviceConfig.include_depth_to_color)
