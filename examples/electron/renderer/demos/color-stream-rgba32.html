@@ -5,6 +5,11 @@
     <title>Kinect Azure Example</title>
     <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
     <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+    <style>
+      body {
+        background-color: #000000;
+      }
+      </style>
   </head>
   <body class="container-fluid py-3">
     <div class="d-flex align-items-baseline justify-content-between">
@@ -34,8 +39,12 @@
 
             kinect.startCameras({
               color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_RGBA32,
-              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_1080P,
-              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30
+              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_15,
+              depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+              apply_depth_to_alpha: true,
+              min_depth:40,
+              max_depth:2000
             });
 
             kinect.startListening((data) => {
