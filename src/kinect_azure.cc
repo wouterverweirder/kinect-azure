@@ -14,7 +14,6 @@ k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
 CustomDeviceConfig g_customDeviceConfig;
 k4a_calibration_t g_calibration;
 k4a_transformation_t transformer = NULL;
-bool flipToRGBA = false;
 
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 k4abt_tracker_t g_tracker = NULL;
@@ -82,11 +81,6 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   if (js_color_format.IsNumber())
   {
     deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
-    // if color_format = K4A_IMAGE_FORMAT_COLOR_RGBA32, resign to K4A_IMAGE_FORMAT_COLOR_BGRA32
-    if (deviceConfig.color_format == (k4a_image_format_t) 8) {
-      deviceConfig.color_format = (k4a_image_format_t) 3;
-      flipToRGBA = true;
-    }
   }
 
   Napi::Value js_color_resolution = js_config.Get("color_resolution");
@@ -111,6 +105,11 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   if (js_include_color_to_depth.IsBoolean())
   {
     g_customDeviceConfig.include_color_to_depth = js_include_color_to_depth.As<Napi::Boolean>();
+  }
+  Napi::Value js_flip_BGRA_to_RGBA = js_config.Get("flip_BGRA_to_RGBA");
+  if (js_flip_BGRA_to_RGBA.IsBoolean())
+  {
+    g_customDeviceConfig.flip_BGRA_to_RGBA = js_flip_BGRA_to_RGBA.As<Napi::Boolean>();
   }
 
   g_deviceConfig = deviceConfig;
@@ -358,7 +357,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
           uint8_t* image_data = k4a_image_get_buffer(color_image);
-          if (flipToRGBA != true){
+          if (g_customDeviceConfig.flip_BGRA_to_RGBA != true){
             memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
           } else {
             if (rgba_data == NULL)

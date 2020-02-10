@@ -33,9 +33,10 @@
           if(kinect.open()) {
 
             kinect.startCameras({
-              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_RGBA32,
+              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
               color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_1080P,
-              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30,
+              flip_BGRA_to_RGBA: true
             });
 
             kinect.startListening((data) => {

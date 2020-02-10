@@ -94,10 +94,11 @@ typedef struct _CustomDeviceConfig
 {
 	bool include_depth_to_color = false;
 	bool include_color_to_depth = false;
-
+	bool flip_BGRA_to_RGBA = false;
 	void reset() {
 		include_depth_to_color = false;
 		include_color_to_depth = false;
+		flip_BGRA_to_RGBA = false;
 	}
 } CustomDeviceConfig;
 
