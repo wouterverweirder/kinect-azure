@@ -3,11 +3,16 @@
 #include <thread>
 #include <mutex>
 #include <napi.h>
+#include <stdio.h>
+#include <malloc.h>
 #include <k4a/k4a.h>
+#include <k4arecord/playback.h>
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
   #include <k4abt.h>
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 #include "structs.h"
+#include <chrono>
+#include <math.h>
 
 k4a_device_t g_device = NULL;
 k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -26,6 +31,11 @@ Napi::ThreadSafeFunction tsfn;
 std::mutex threadJoinedMutex;
 
 bool is_listening = false;
+bool is_playbackFileOpen = false;
+bool is_playing = false;
+int32_t playback_fps = 15;
+k4a_playback_t playback_handle = NULL;
+k4a_record_configuration_t playbackConfig;
 
 Napi::Value MethodInit(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -60,6 +70,38 @@ Napi::Value MethodClose(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, true);
 }
 
+Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
+ 
+  Napi::Env env = info.Env();
+   if (is_playbackFileOpen){
+    Napi::TypeError::New(env, "File already open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  g_emit.Call({Napi::String::New(env, "log"), Napi::String::New(env, "openPlayback")});
+  Napi::String js_path = info[0].As<Napi::String>();
+  
+  if (k4a_playback_open(js_path.Utf8Value().c_str(), &playback_handle) != K4A_RESULT_SUCCEEDED)
+  {
+      printf("Failed to open recording\n");
+      return Napi::Boolean::New(env, false);
+  }
+
+  if (k4a_playback_get_record_configuration(playback_handle, &playbackConfig) != K4A_RESULT_SUCCEEDED)
+  {
+      printf("Failed to read config\n");
+      return Napi::Boolean::New(env, false);
+  }
+  
+  is_playbackFileOpen = true;
+  return Napi::Boolean::New(env, true);
+}
+
 Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (info.Length() < 1) {
@@ -74,7 +116,11 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   Napi::Value js_camera_fps = js_config.Get("camera_fps");
   if (js_camera_fps.IsNumber())
   {
-    deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
+    int32_t fps = js_camera_fps.As<Napi::Number>().Int32Value();
+    if (fps == 0) playback_fps = 5;
+    else if (fps == 1) playback_fps = 15;
+    else if (fps == 2) playback_fps = 30;
+    deviceConfig.camera_fps = (k4a_fps_t) fps;
   }
 
   Napi::Value js_color_format = js_config.Get("color_format");
@@ -113,6 +159,21 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
 
   return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
+  
+  Napi::Env env = info.Env();
+   if (!is_playbackFileOpen){
+    Napi::TypeError::New(env, "No playback file is open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  // TODO: add playback config here
+  is_playing = true;
+
+  return MethodStartCameras(info);
 }
 
 Napi::Value MethodStopCameras(const Napi::CallbackInfo& info) {
@@ -293,12 +354,28 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
     while(is_listening)
     {
       k4a_capture_t sensor_capture;
-      k4a_wait_result_t get_capture_result = k4a_device_get_capture(g_device, &sensor_capture, 0);
-      if (get_capture_result != K4A_WAIT_RESULT_SUCCEEDED)
-      {
-        // printf("[kinect_azure.cc] get_capture_result != K4A_WAIT_RESULT_SUCCEEDED\n");
-        continue;
+      if (is_playing){
+        k4a_stream_result_t get_stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
+        if (get_stream_result == K4A_STREAM_RESULT_SUCCEEDED)
+        {
+          int milliseconds = round(1000 / playback_fps);
+          std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+        } else if (get_stream_result == K4A_STREAM_RESULT_EOF) {
+            // End of file reached
+            k4a_playback_seek_timestamp(playback_handle, 0, K4A_PLAYBACK_SEEK_BEGIN);
+            continue;
+        }else {
+          continue;
+        }
+      } else {
+        k4a_wait_result_t get_capture_result = k4a_device_get_capture(g_device, &sensor_capture, 0);
+        if (get_capture_result != K4A_WAIT_RESULT_SUCCEEDED)
+        {
+          // printf("[kinect_azure.cc] get_capture_result != K4A_WAIT_RESULT_SUCCEEDED\n");
+          continue;
+        }
       }
+      
       // Create new data
       mtx.lock();
       // printf("[kinect_azure.cc] jsFrame.reset\n");
@@ -559,6 +636,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function::New(env, MethodInit));
   exports.Set(Napi::String::New(env, "getInstalledCount"),
     Napi::Function::New(env, MethodGetInstalledCount));
+  exports.Set(Napi::String::New(env, "openPlayback"),
+    Napi::Function::New(env, MethodOpenPlayback));
+  exports.Set(Napi::String::New(env, "startPlayback"),
+    Napi::Function::New(env, MethodStartPlayback));
   exports.Set(Napi::String::New(env, "open"),
     Napi::Function::New(env, MethodOpen));
   exports.Set(Napi::String::New(env, "close"),

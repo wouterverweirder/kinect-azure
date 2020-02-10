@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+      <h1 class="bd-title">Color Stream Playback</h1>
+      <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+    </div>
+    <p>
+      This demo shows the color stream in an image element. The default color stream is a buffer with jpeg data. Note that the img tag in this demo is resized through css to fit the window. The native image size in this demo is <span id="info">larger</span>.
+    </p>
+    <p>
+      Most resolutions support a 30fps stream. Only the largest resolution (KinectAzure.K4A_COLOR_RESOLUTION_3072P) is limited to 15fps.
+    </p>
+    <img id="colorImage" class="img-fluid"></img>
+    <script>
+      {
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+        const $info = document.getElementById('info');
+        const $colorImage = document.getElementById('colorImage');
+        const fs = require('fs')
+        const path = require('path')
+        
+        const init = () => {
+          startKinect();
+        };
+
+       
+
+        const startKinect = () => {
+          var url = path.join(__dirname, "recording.mkv");
+          console.log('startKinect2');
+          var fileOpenned = kinect.openPlayback(url);
+         
+          let colorImageURL;
+          console.log('fileOpenned = ' + fileOpenned);
+          if (fileOpenned){
+            var playing = kinect.startPlayback({
+              color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_15
+            });
+            console.log('playing: ' + playing);
+            kinect.startListening((data) => {
+              
+
+              $info.textContent = ` ${data.colorImageFrame.width}x${data.colorImageFrame.height}`;
+              
+              //console.log(data.colorImageFrame.imageData);
+              // color - default jpg stream
+              const bufferCopy = Buffer.from(data.colorImageFrame.imageData);
+              // setting a data url leaks memory - Blobs seem to work fine
+              // https://stackoverflow.com/questions/19298393/setting-img-src-to-dataurl-leaks-memory
+              const imageBlob = new Blob([bufferCopy], { type: 'image/jpeg'});
+              if (colorImageURL) {
+                URL.revokeObjectURL(colorImageURL);
+              }
+              colorImageURL = URL.createObjectURL(imageBlob);
+              $colorImage.src = colorImageURL;
+            });
+          }
+          
+        };
+
+        // expose the kinect instance to the window object in this demo app to allow the parent window to close it between sessions
+        window.kinect = kinect;
+        // init the code
+        init();
+      }
+    </script>
+  </body>
+</html>
