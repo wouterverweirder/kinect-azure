@@ -94,13 +94,15 @@ typedef struct _CustomDeviceConfig
 {
 	bool include_depth_to_color = false;
 	bool include_color_to_depth = false;
-	int apply_depth_to_alpha = false;
+	bool flip_BGRA_to_RGBA = false;
+	bool apply_depth_to_alpha = false;
 	int min_depth = 100;
 	int max_depth = 3000;
 	
 	void reset() {
 		include_depth_to_color = false;
 		include_color_to_depth = false;
+		flip_BGRA_to_RGBA = false;
 		apply_depth_to_alpha = false;
 		min_depth = 100;
 		max_depth = 3000;
