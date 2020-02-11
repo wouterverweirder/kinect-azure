@@ -519,7 +519,11 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       }
     }
 
-
+    if (rgba_data != NULL) {
+      delete[] rgba_data;
+      rgba_data = NULL;
+    }
+    
     if (transformer != NULL)
     {
       k4a_transformation_destroy(transformer);
