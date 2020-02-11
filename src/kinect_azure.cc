@@ -11,6 +11,7 @@
   #include <k4abt.h>
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 #include "structs.h"
+#include "console.cc"
 #include <chrono>
 #include <math.h>
 
@@ -24,7 +25,7 @@ k4a_transformation_t transformer = NULL;
 k4abt_tracker_t g_tracker = NULL;
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 
-Napi::FunctionReference g_emit;
+//Napi::FunctionReference g_emit;
 std::thread nativeThread;
 std::mutex mtx;
 Napi::ThreadSafeFunction tsfn;
@@ -33,119 +34,16 @@ std::mutex threadJoinedMutex;
 bool is_listening = false;
 bool is_playbackFileOpen = false;
 bool is_playing = false;
-int32_t playback_fps = 15;
 k4a_playback_t playback_handle = NULL;
-k4a_record_configuration_t playbackConfig;
+k4a_record_configuration_t playback_config;
+PlaybackProps g_playbackProps;
 
 int depthPixelIndex = 0;
 uint8_t* depth_to_color_data = NULL;
 unsigned short combined = 0;
 int normalizedValue = 0;
 
-Napi::Value MethodInit(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Wrong number of arguments")
-        .ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  // first argument is emit function
-  Napi::Function emit = info[0].As<Napi::Function>();
-  g_emit = Napi::Persistent(emit);
-  return Napi::Boolean::New(env, true);
-}
-
-Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  uint32_t count = k4a_device_get_installed_count();
-  return Napi::Number::New(env, count);
-}
-
-Napi::Value MethodOpen(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  g_emit.Call({Napi::String::New(env, "log"), Napi::String::New(env, "open")});
-  k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
-  return Napi::Boolean::New(env, true);
-}
-
-Napi::Value MethodClose(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  // printf("[kinect_azure.cc] MethodClose\n");
-  k4a_device_close(g_device);
-  return Napi::Boolean::New(env, true);
-}
-
-Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
- 
-  Napi::Env env = info.Env();
-   if (is_playbackFileOpen){
-    Napi::TypeError::New(env, "File already open")
-        .ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Wrong number of arguments")
-        .ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  g_emit.Call({Napi::String::New(env, "log"), Napi::String::New(env, "openPlayback")});
-  Napi::String js_path = info[0].As<Napi::String>();
-  
-  if (k4a_playback_open(js_path.Utf8Value().c_str(), &playback_handle) != K4A_RESULT_SUCCEEDED)
-  {
-      printf("Failed to open recording\n");
-      return Napi::Boolean::New(env, false);
-  }
-
-  if (k4a_playback_get_record_configuration(playback_handle, &playbackConfig) != K4A_RESULT_SUCCEEDED)
-  {
-      printf("Failed to read config\n");
-      return Napi::Boolean::New(env, false);
-  }
-  
-  is_playbackFileOpen = true;
-  return Napi::Boolean::New(env, true);
-}
-
-Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Wrong number of arguments")
-        .ThrowAsJavaScriptException();
-    return env.Null();
-  }
-
-  k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  // deviceConfig.synchronized_images_only = false;
-  Napi::Object js_config =  info[0].As<Napi::Object>();
-  Napi::Value js_camera_fps = js_config.Get("camera_fps");
-  if (js_camera_fps.IsNumber())
-  {
-    int32_t fps = js_camera_fps.As<Napi::Number>().Int32Value();
-    if (fps == 0) playback_fps = 5;
-    else if (fps == 1) playback_fps = 15;
-    else if (fps == 2) playback_fps = 30;
-    deviceConfig.camera_fps = (k4a_fps_t) fps;
-  }
-
-  Napi::Value js_color_format = js_config.Get("color_format");
-  if (js_color_format.IsNumber())
-  {
-    deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
-  }
-
-  Napi::Value js_color_resolution = js_config.Get("color_resolution");
-  if (js_color_resolution.IsNumber())
-  {
-    deviceConfig.color_resolution = (k4a_color_resolution_t) js_color_resolution.As<Napi::Number>().Int32Value();
-  }
-
-  Napi::Value js_depth_mode = js_config.Get("depth_mode");
-  if (js_depth_mode.IsNumber())
-  {
-    deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
-  }
-
+void copyCustomConfig(Napi::Object js_config){
   g_customDeviceConfig.reset();
   Napi::Value js_include_depth_to_color = js_config.Get("include_depth_to_color");
   if (js_include_depth_to_color.IsBoolean())
@@ -177,12 +75,80 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   {
     g_customDeviceConfig.max_depth = js_max_depth.As<Napi::Number>();
   }
+}
 
-  g_deviceConfig = deviceConfig;
-  k4a_device_start_cameras(g_device, &g_deviceConfig);
+inline int map (float value, int inputMin, int inputMax, int outputMin, int outputMax) {
+  if (value > inputMax) value = inputMax;
+  if (value < inputMin) value = inputMin;
+  return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+}
 
-  k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
+Napi::Value MethodInit(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  // first argument is emit function
+  Napi::Function emit = info[0].As<Napi::Function>();
+  //g_emit = Napi::Persistent(emit);
+  console::init(env, emit);
+  return Napi::Boolean::New(env, true);
+}
 
+Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  uint32_t count = k4a_device_get_installed_count();
+  return Napi::Number::New(env, count);
+}
+
+Napi::Value MethodOpen(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  console::log("open");
+  k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodClose(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  // printf("[kinect_azure.cc] MethodClose\n");
+  k4a_device_close(g_device);
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
+ 
+  Napi::Env env = info.Env();
+   if (is_playbackFileOpen){
+    Napi::TypeError::New(env, "File already open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  console::log("openPlayback");
+  Napi::String js_path = info[0].As<Napi::String>();
+  
+  if (k4a_playback_open(js_path.Utf8Value().c_str(), &playback_handle) != K4A_RESULT_SUCCEEDED)
+  {
+      console::log("Failed to open recording\n");
+      return Napi::Boolean::New(env, false);
+  }
+
+  if (k4a_playback_get_record_configuration(playback_handle, &playback_config) != K4A_RESULT_SUCCEEDED)
+  {
+      console::log("Failed to read config\n");
+      return Napi::Boolean::New(env, false);
+  }
+
+  g_playbackProps.recording_length = k4a_playback_get_recording_length_usec(playback_handle);
+  
+  is_playbackFileOpen = true;
   return Napi::Boolean::New(env, true);
 }
 
@@ -194,11 +160,97 @@ Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
         .ThrowAsJavaScriptException();
     return env.Null();
   }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
 
-  // TODO: add playback config here
   is_playing = true;
 
-  return MethodStartCameras(info);
+  Napi::Object js_config =  info[0].As<Napi::Object>();
+  Napi::Value js_color_format = js_config.Get("color_format");
+  if (js_color_format.IsNumber())
+  {
+    k4a_image_format_t target_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
+    if (k4a_playback_set_color_conversion(playback_handle, target_format) != K4A_RESULT_SUCCEEDED)
+    {
+        printf("Failed to read config\n");
+        return Napi::Boolean::New(env, false);
+    }
+  }
+
+  Napi::Value js_camera_fps = js_config.Get("camera_fps");
+  if (js_camera_fps.IsNumber())
+  {
+    g_playbackProps.playback_fps = js_camera_fps.As<Napi::Number>().Int32Value();
+  } else {
+    g_playbackProps.playback_fps = playback_config.camera_fps;
+  }
+
+  if (g_playbackProps.playback_fps == 0) g_playbackProps.playback_fps = 5;
+  else if (g_playbackProps.playback_fps == 1) g_playbackProps.playback_fps = 15;
+  else if (g_playbackProps.playback_fps == 2) g_playbackProps.playback_fps = 30;
+
+  console::log(g_playbackProps.playback_fps);
+  k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  deviceConfig.color_resolution = (k4a_color_resolution_t) playback_config.color_resolution;
+  deviceConfig.depth_mode = (k4a_depth_mode_t) playback_config.depth_mode;
+
+  copyCustomConfig(js_config);
+  
+  g_deviceConfig = deviceConfig;
+
+  k4a_playback_get_calibration(playback_handle, &g_calibration);
+
+  // TODO: read other config values from file
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  // deviceConfig.synchronized_images_only = false;
+  Napi::Object js_config =  info[0].As<Napi::Object>();
+  Napi::Value js_camera_fps = js_config.Get("camera_fps");
+  if (js_camera_fps.IsNumber())
+  {
+    deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
+  }
+
+  Napi::Value js_color_format = js_config.Get("color_format");
+  if (js_color_format.IsNumber())
+  {
+    deviceConfig.color_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
+  }
+
+  Napi::Value js_color_resolution = js_config.Get("color_resolution");
+  if (js_color_resolution.IsNumber())
+  {
+    deviceConfig.color_resolution = (k4a_color_resolution_t) js_color_resolution.As<Napi::Number>().Int32Value();
+  }
+
+  Napi::Value js_depth_mode = js_config.Get("depth_mode");
+  if (js_depth_mode.IsNumber())
+  {
+    deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
+  }
+
+  copyCustomConfig(js_config);
+
+  g_deviceConfig = deviceConfig;
+  
+  k4a_device_start_cameras(g_device, &g_deviceConfig);
+
+  k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
+
+  return Napi::Boolean::New(env, true);
 }
 
 Napi::Value MethodStopCameras(const Napi::CallbackInfo& info) {
@@ -228,12 +280,6 @@ Napi::Value MethodDestroyTracker(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, true);
 }
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
-
-inline int map (float value, int inputMin, int inputMax, int outputMin, int outputMax) {
-  if (value > inputMax) value = inputMax;
-  if (value < inputMin) value = inputMin;
-  return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
-}
 
 Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -391,7 +437,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         k4a_stream_result_t get_stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
         if (get_stream_result == K4A_STREAM_RESULT_SUCCEEDED)
         {
-          int milliseconds = round(1000 / playback_fps);
+          int milliseconds = round(1000 / g_playbackProps.playback_fps);
           std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
         } else if (get_stream_result == K4A_STREAM_RESULT_EOF) {
             // End of file reached
@@ -458,17 +504,25 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
         }
       }
+
       if (g_customDeviceConfig.include_depth_to_color || g_customDeviceConfig.apply_depth_to_alpha)
       {
+        
         if(k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16, jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height, jsFrame.colorImageFrame.width * 2, &depth_to_color_image) == K4A_RESULT_SUCCEEDED)
         {
+          jsFrame.depthToColorImageFrame.height = 10;
+      
           if(k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
           {
+            jsFrame.depthToColorImageFrame.width = 10;
+      
             jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
             jsFrame.depthToColorImageFrame.width = k4a_image_get_width_pixels(depth_to_color_image);
             jsFrame.depthToColorImageFrame.height = k4a_image_get_height_pixels(depth_to_color_image);
             jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
             jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
+          } else {
+            jsFrame.depthToColorImageFrame.width = 1;
           }
         }
       }
@@ -515,6 +569,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
               processed_color_data[i+2] = image_data[i];
               processed_color_data[i+3] = image_data[i+3];
             }
+          } else {
+            memcpy(processed_color_data, image_data, jsFrame.colorImageFrame.image_length);
           }
           if (g_customDeviceConfig.apply_depth_to_alpha == true){
             depthPixelIndex = 0;

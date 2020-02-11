@@ -110,3 +110,14 @@ typedef struct _CustomDeviceConfig
 } CustomDeviceConfig;
 
 #endif
+
+typedef struct _PlaybackProps
+{
+	uint64_t playback_fps = 15;
+	uint64_t recording_length = 0;
+	
+	void reset() {
+		playback_fps = 15;
+		recording_length = 0;
+	}
+} PlaybackProps;
