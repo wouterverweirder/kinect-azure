@@ -216,13 +216,15 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   }
 
   k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  // deviceConfig.synchronized_images_only = false;
+  
   Napi::Object js_config =  info[0].As<Napi::Object>();
   Napi::Value js_camera_fps = js_config.Get("camera_fps");
   if (js_camera_fps.IsNumber())
   {
     deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
   }
+
+
 
   Napi::Value js_color_format = js_config.Get("color_format");
   if (js_color_format.IsNumber())
@@ -240,6 +242,12 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   if (js_depth_mode.IsNumber())
   {
     deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
+  }
+
+  Napi::Value js_synchronized_images_only = js_config.Get("synchronized_images_only");
+  if (js_synchronized_images_only.IsBoolean())
+  {
+    deviceConfig.synchronized_images_only = js_synchronized_images_only.As<Napi::Boolean>();
   }
 
   copyCustomConfig(js_config);
