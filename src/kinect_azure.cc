@@ -106,6 +106,11 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   {
     g_customDeviceConfig.include_color_to_depth = js_include_color_to_depth.As<Napi::Boolean>();
   }
+  Napi::Value js_flip_BGRA_to_RGBA = js_config.Get("flip_BGRA_to_RGBA");
+  if (js_flip_BGRA_to_RGBA.IsBoolean())
+  {
+    g_customDeviceConfig.flip_BGRA_to_RGBA = js_flip_BGRA_to_RGBA.As<Napi::Boolean>();
+  }
 
   g_deviceConfig = deviceConfig;
   k4a_device_start_cameras(g_device, &g_deviceConfig);
@@ -289,6 +294,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       mtx.unlock();
     };
 
+    uint8_t* rgba_data = NULL;
     JSFrame jsFrame;
     while(is_listening)
     {
@@ -351,7 +357,20 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
           uint8_t* image_data = k4a_image_get_buffer(color_image);
-          memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
+          if (g_customDeviceConfig.flip_BGRA_to_RGBA != true){
+            memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
+          } else {
+            if (rgba_data == NULL)
+              rgba_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+            
+            for( int i = 0; i < jsFrame.colorImageFrame.image_length; i+=4 ) {
+              rgba_data[i] = image_data[i+2];
+              rgba_data[i+1] = image_data[i+1];
+              rgba_data[i+2] = image_data[i];
+              rgba_data[i+3] = image_data[i+3];
+            }
+            memcpy(jsFrame.colorImageFrame.image_data, rgba_data, jsFrame.colorImageFrame.image_length);
+          }
         }
       }
       if (g_customDeviceConfig.include_depth_to_color)
@@ -500,7 +519,11 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       }
     }
 
-
+    if (rgba_data != NULL) {
+      delete[] rgba_data;
+      rgba_data = NULL;
+    }
+    
     if (transformer != NULL)
     {
       k4a_transformation_destroy(transformer);
