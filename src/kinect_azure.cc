@@ -36,6 +36,10 @@ std::mutex threadJoinedMutex;
 bool is_listening = false;
 bool is_playbackFileOpen = false;
 bool is_playing = false;
+bool is_paused = false;
+bool is_seeking = false;
+double colorTimestamp = 0;
+
 k4a_playback_t playback_handle = NULL;
 k4a_record_configuration_t playback_config;
 PlaybackProps g_playbackProps;
@@ -170,6 +174,7 @@ Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
   }
 
   is_playing = true;
+  is_paused = false;
 
   Napi::Object js_config =  info[0].As<Napi::Object>();
   Napi::Value js_color_format = js_config.Get("color_format");
@@ -208,6 +213,58 @@ Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
 
   // TODO: read other config values from file
   return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodStopPlayback(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  k4a_playback_close(playback_handle);
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodSeek(const Napi::CallbackInfo& info) {
+   Napi::Env env = info.Env();
+   
+   if (!is_playbackFileOpen){
+    Napi::TypeError::New(env, "No playback file is open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Value js_time =  info[0].As<Napi::Value>();
+  if (js_time.IsNumber())
+  {
+    int32_t time = (int32_t) js_time.As<Napi::Number>().Int32Value();
+    k4a_playback_seek_timestamp(playback_handle, time * 1000000, K4A_PLAYBACK_SEEK_BEGIN);
+    is_seeking = true;
+  }
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodPause(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  is_paused = true;
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodResume(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  is_paused = false;
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodTime(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  return Napi::Number::New(env, colorTimestamp / 1000000.0f);
+}
+
+Napi::Value MethodDuration(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  return Napi::Number::New(env, g_playbackProps.recording_length / 1000000.0f);
 }
 
 Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
@@ -446,6 +503,10 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
     {
       k4a_capture_t sensor_capture;
       if (is_playing){
+        if (is_paused && !is_seeking)
+          continue;
+
+        is_seeking = false;
         k4a_stream_result_t get_stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
         if (get_stream_result == K4A_STREAM_RESULT_SUCCEEDED)
         {
@@ -515,6 +576,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
         }
+        colorTimestamp = (double)k4a_image_get_device_timestamp_usec(color_image);
       }
 
       if (g_customDeviceConfig.include_depth_to_color)
@@ -826,6 +888,18 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function::New(env, MethodOpenPlayback));
   exports.Set(Napi::String::New(env, "startPlayback"),
     Napi::Function::New(env, MethodStartPlayback));
+  exports.Set(Napi::String::New(env, "stopPlayback"),
+    Napi::Function::New(env, MethodStopPlayback));
+  exports.Set(Napi::String::New(env, "pause"),
+    Napi::Function::New(env, MethodPause));
+  exports.Set(Napi::String::New(env, "resume"),
+    Napi::Function::New(env, MethodResume));
+  exports.Set(Napi::String::New(env, "seek"),
+    Napi::Function::New(env, MethodSeek));
+  exports.Set(Napi::String::New(env, "time"),
+    Napi::Function::New(env, MethodTime));
+  exports.Set(Napi::String::New(env, "duration"),
+    Napi::Function::New(env, MethodDuration));
   exports.Set(Napi::String::New(env, "open"),
     Napi::Function::New(env, MethodOpen));
   exports.Set(Napi::String::New(env, "close"),

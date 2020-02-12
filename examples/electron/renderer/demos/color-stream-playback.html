@@ -24,8 +24,17 @@
 
         const $outputCanvas = document.getElementById('outputCanvas'),
           outputCtx = $outputCanvas.getContext('2d');
-        
-        
+        let isPaused = false;
+
+        document.body.onclick = (e) => {
+          isPaused = !isPaused;
+          console.log('click: ' + isPaused);
+          if (isPaused === true){
+            kinect.pause();
+          } else if (isPaused === false){
+            kinect.resume();
+          }
+        }
         let outputImageData;
 
         const init = () => {
@@ -45,28 +54,33 @@
               camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30,
               include_depth_to_color: true,
               flip_BGRA_to_RGBA: true,
-              apply_depth_to_alpha: true,
+              depth_to_greyscale: true,
               min_depth: 50,
-              max_depth: 3000
+              max_depth: 1800
             });
-
-            
 
             console.log('started = ' + started);
 
             
             kinect.startListening((data) => {
               
-              $info.textContent = ` ${data.colorImageFrame.width}x${data.colorImageFrame.height}`;
-              if (!outputImageData && data.colorImageFrame.width > 0) {
-                $outputCanvas.width = data.colorImageFrame.width;
-                $outputCanvas.height = data.colorImageFrame.height;
+              console.log("current time = " + kinect.time);
+              console.log("duration = " + kinect.duration);
+              
+              $info.textContent = ` ${data.depthToColorImageFrame.width}x${data.depthToColorImageFrame.height}`;
+              if (!outputImageData && data.depthToColorImageFrame.width > 0) {
+                
+                // seek to 8 seconds into the clip
+                kinect.seek(8);
+
+                $outputCanvas.width = data.depthToColorImageFrame.width;
+                $outputCanvas.height = data.depthToColorImageFrame.height;
                 outputCtx.fillStyle = 'green';
                 outputCtx.fillRect(20, 10, 150, 100);
                 outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
               }
               if (outputImageData) {
-                renderRGBA32ColorFrame(outputCtx, outputImageData, data.colorImageFrame);
+                renderRGBA32ColorFrame(outputCtx, outputImageData, data.depthToColorImageFrame);
                 
               }
             });
