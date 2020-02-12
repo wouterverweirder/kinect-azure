@@ -74,9 +74,9 @@ void copyCustomConfig(Napi::Object js_config){
   g_customDeviceConfig.min_depth = convertToNumber("min_depth", js_config, g_customDeviceConfig.min_depth);
   g_customDeviceConfig.max_depth = convertToNumber("max_depth", js_config, g_customDeviceConfig.max_depth);
   g_customDeviceConfig.include_depth_to_color = convertToBool("include_depth_to_color", js_config, g_customDeviceConfig.include_depth_to_color) 
-    ||  g_customDeviceConfig.apply_depth_to_alpha 
-    ||  g_customDeviceConfig.depth_to_greyscale 
-    ||  g_customDeviceConfig.depth_to_redblue;
+    ||  g_customDeviceConfig.apply_depth_to_alpha == true
+    ||  g_customDeviceConfig.depth_to_greyscale == true
+    ||  g_customDeviceConfig.depth_to_redblue == true;
   
 }
 
@@ -531,7 +531,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             jsFrame.depthToColorImageFrame.width = k4a_image_get_width_pixels(depth_to_color_image);
             jsFrame.depthToColorImageFrame.height = k4a_image_get_height_pixels(depth_to_color_image);
             
-            if (g_customDeviceConfig.flip_BGRA_to_RGBA == true || g_customDeviceConfig.apply_depth_to_alpha == true){
+            if (g_customDeviceConfig.depth_to_greyscale == true || g_customDeviceConfig.depth_to_redblue == true){
               jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(color_image);
               jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
               jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
@@ -616,7 +616,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (depth_to_color_image != NULL)
       {
         uint8_t* image_data = k4a_image_get_buffer(depth_to_color_image);
-        if (g_customDeviceConfig.depth_to_greyscale == true || g_customDeviceConfig.depth_to_redblue){
+        if (g_customDeviceConfig.depth_to_greyscale == true || g_customDeviceConfig.depth_to_redblue == true){
 
           if (processed_depth_data == NULL)
             processed_depth_data = new uint8_t[jsFrame.colorImageFrame.image_length];
