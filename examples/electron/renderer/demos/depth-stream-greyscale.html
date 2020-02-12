@@ -33,9 +33,11 @@
           if(kinect.open()) {
 
             const depthMode = KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED;
+            const convertInCpp = false;
 
             kinect.startCameras({
-              depth_mode: depthMode
+              depth_mode: depthMode,
+              depth_to_greyscale: convertInCpp
             });
             const depthModeRange = kinect.getDepthModeRange(depthMode);
 
@@ -47,10 +49,19 @@
                 depthImageData = depthCtx.createImageData($depthCanvas.width, $depthCanvas.height);
               }
               if (depthImageData) {
-                renderDepthFrameAsGreyScale(depthCtx, depthImageData, data.depthImageFrame, depthModeRange);
+                if (convertInCpp){
+                  renderDepthFrameToCanvas(depthCtx, depthImageData, data.depthImageFrame, depthModeRange);
+                } else {
+                  renderDepthFrameAsGreyScale(depthCtx, depthImageData, data.depthImageFrame, depthModeRange);
+                }
               }
             });
           }
+        };
+
+        const renderDepthFrameToCanvas = (ctx, canvasImageData, imageFrame, depthModeRange) => {
+          canvasImageData.data.set(imageFrame.imageData);
+          ctx.putImageData(canvasImageData, 0, 0);
         };
 
         const renderDepthFrameAsGreyScale = (ctx, canvasImageData, imageFrame, depthModeRange) => {

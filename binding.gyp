@@ -12,6 +12,7 @@
       ],
       "libraries": [
         "<(module_root_dir)/sdk/sensor-sdk/lib/native/amd64/release/k4a.lib",
+        "<(module_root_dir)/sdk/sensor-sdk/lib/native/amd64/release/k4arecord.lib",
         "<(module_root_dir)/sdk/body-tracking-sdk/lib/native/amd64/release/k4abt.lib"
       ],
       "copies": [
@@ -20,6 +21,7 @@
           "files": [
             "<(module_root_dir)/sdk/sensor-sdk/lib/native/amd64/release/depthengine_2_0.dll",
             "<(module_root_dir)/sdk/sensor-sdk/lib/native/amd64/release/k4a.dll",
+            "<(module_root_dir)/sdk/sensor-sdk/lib/native/amd64/release/k4arecord.dll",
             "<(module_root_dir)/sdk/body-tracking-sdk/lib/native/amd64/release/k4abt.dll"
           ]
         }

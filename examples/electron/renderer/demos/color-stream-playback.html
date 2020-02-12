@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+      <h1 class="bd-title">MKV Playback</h1>
+      <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+    </div>
+    <p>
+      This demo shows the how to playback a recorded mkv file. Note that the canvas tag in this demo is resized through css to fit the window. The native image size in this demo is <span id="info">different</span>.
+    </p>
+    <canvas id="outputCanvas" class="img-fluid"></canvas>
+    <script>
+      {
+        const path = require('path');
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+        const $info = document.getElementById('info');
+
+        const $outputCanvas = document.getElementById('outputCanvas'),
+          outputCtx = $outputCanvas.getContext('2d');
+        
+        
+        let outputImageData;
+
+        const init = () => {
+          console.log(kinect);
+          
+          startKinect();
+        };
+
+        const startKinect = () => {
+          // use tools/k4arecorder in the 1.3 Kinect Azure SDK to generate mkv
+          var url = path.join(__dirname, "output_wfov1.mkv");
+          
+          if(kinect.openPlayback(url)) {
+
+            var started = kinect.startPlayback({
+              color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32, // convert from K4A_IMAGE_FORMAT_COLOR_MJPG
+              camera_fps: KinectAzure.K4A_FRAMES_PER_SECOND_30,
+              include_depth_to_color: true,
+              flip_BGRA_to_RGBA: true,
+              apply_depth_to_alpha: true,
+              min_depth: 50,
+              max_depth: 3000
+            });
+
+            
+
+            console.log('started = ' + started);
+
+            
+            kinect.startListening((data) => {
+              
+              $info.textContent = ` ${data.colorImageFrame.width}x${data.colorImageFrame.height}`;
+              if (!outputImageData && data.colorImageFrame.width > 0) {
+                $outputCanvas.width = data.colorImageFrame.width;
+                $outputCanvas.height = data.colorImageFrame.height;
+                outputCtx.fillStyle = 'green';
+                outputCtx.fillRect(20, 10, 150, 100);
+                outputImageData = outputCtx.createImageData($outputCanvas.width, $outputCanvas.height);
+              }
+              if (outputImageData) {
+                renderRGBA32ColorFrame(outputCtx, outputImageData, data.colorImageFrame);
+                
+              }
+            });
+          }
+        };
+
+        const renderRGBA32ColorFrame = (ctx, canvasImageData, imageFrame) => {
+          canvasImageData.data.set(imageFrame.imageData);
+          ctx.putImageData(canvasImageData, 0, 0);
+        };
+
+        // expose the kinect instance to the window object in this demo app to allow the parent window to close it between sessions
+        window.kinect = kinect;
+        init();
+      }
+    </script>
+  </body>
+</html>

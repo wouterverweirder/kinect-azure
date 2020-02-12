@@ -3,11 +3,19 @@
 #include <thread>
 #include <mutex>
 #include <napi.h>
+#include <stdio.h>
+#include <malloc.h>
 #include <k4a/k4a.h>
+#include <k4arecord/playback.h>
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
   #include <k4abt.h>
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 #include "structs.h"
+#include "console.cc"
+#include <chrono>
+#include <math.h>
+#include "colorUtils.cc"
+#include <algorithm>
 
 k4a_device_t g_device = NULL;
 k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -19,16 +27,68 @@ k4a_transformation_t transformer = NULL;
 k4abt_tracker_t g_tracker = NULL;
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 
-Napi::FunctionReference g_emit;
+//Napi::FunctionReference g_emit;
 std::thread nativeThread;
 std::mutex mtx;
 Napi::ThreadSafeFunction tsfn;
 std::mutex threadJoinedMutex;
 
 bool is_listening = false;
+bool is_playbackFileOpen = false;
+bool is_playing = false;
+k4a_playback_t playback_handle = NULL;
+k4a_record_configuration_t playback_config;
+PlaybackProps g_playbackProps;
+
+int depthPixelIndex = 0;
+uint8_t* depth_to_color_data = NULL;
+float combined = 0;
+int normalizedValue = 0;
+int rgb[3];
+
+inline bool convertToBool(const char* key, Napi::Object js_config, bool currentValue) {
+  Napi::Value js_value = js_config.Get(key);
+  if (js_value.IsBoolean())
+  {
+   return js_value.As<Napi::Boolean>();
+  }
+  return currentValue;
+}
+
+inline int convertToNumber(const char* key, Napi::Object js_config, int currentValue) {
+  Napi::Value js_value = js_config.Get(key);
+  if (js_value.IsNumber())
+  {
+   return js_value.As<Napi::Number>();
+  }
+  return currentValue;
+}
+
+void copyCustomConfig(Napi::Object js_config){
+  g_customDeviceConfig.reset();
+  g_customDeviceConfig.include_color_to_depth = convertToBool("include_color_to_depth", js_config,  g_customDeviceConfig.include_color_to_depth);
+  g_customDeviceConfig.flip_BGRA_to_RGBA = convertToBool("flip_BGRA_to_RGBA", js_config,  g_customDeviceConfig.flip_BGRA_to_RGBA);
+  g_customDeviceConfig.apply_depth_to_alpha = convertToBool("apply_depth_to_alpha", js_config,  g_customDeviceConfig.apply_depth_to_alpha);
+  g_customDeviceConfig.depth_to_greyscale = convertToBool("depth_to_greyscale", js_config,  g_customDeviceConfig.depth_to_greyscale);
+  g_customDeviceConfig.depth_to_redblue = convertToBool("depth_to_redblue", js_config,  g_customDeviceConfig.depth_to_redblue);
+  g_customDeviceConfig.min_depth = convertToNumber("min_depth", js_config, g_customDeviceConfig.min_depth);
+  g_customDeviceConfig.max_depth = convertToNumber("max_depth", js_config, g_customDeviceConfig.max_depth);
+  g_customDeviceConfig.include_depth_to_color = convertToBool("include_depth_to_color", js_config, g_customDeviceConfig.include_depth_to_color) 
+    ||  g_customDeviceConfig.apply_depth_to_alpha 
+    ||  g_customDeviceConfig.depth_to_greyscale 
+    ||  g_customDeviceConfig.depth_to_redblue;
+  
+}
+
+inline int map (float value, int inputMin, int inputMax, int outputMin, int outputMax) {
+  if (value > inputMax) value = inputMax;
+  if (value < inputMin) value = inputMin;
+  return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+}
 
 Napi::Value MethodInit(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
+  
   if (info.Length() < 1) {
     Napi::TypeError::New(env, "Wrong number of arguments")
         .ThrowAsJavaScriptException();
@@ -36,7 +96,8 @@ Napi::Value MethodInit(const Napi::CallbackInfo& info) {
   }
   // first argument is emit function
   Napi::Function emit = info[0].As<Napi::Function>();
-  g_emit = Napi::Persistent(emit);
+  //g_emit = Napi::Persistent(emit);
+  console::init(env, emit);
   return Napi::Boolean::New(env, true);
 }
 
@@ -48,7 +109,7 @@ Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo& info) {
 
 Napi::Value MethodOpen(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  g_emit.Call({Napi::String::New(env, "log"), Napi::String::New(env, "open")});
+  console::log("open");
   k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
   return Napi::Boolean::New(env, true);
 }
@@ -57,6 +118,95 @@ Napi::Value MethodClose(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   // printf("[kinect_azure.cc] MethodClose\n");
   k4a_device_close(g_device);
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
+ 
+  Napi::Env env = info.Env();
+   if (is_playbackFileOpen){
+    Napi::TypeError::New(env, "File already open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  console::log("openPlayback");
+  Napi::String js_path = info[0].As<Napi::String>();
+  
+  if (k4a_playback_open(js_path.Utf8Value().c_str(), &playback_handle) != K4A_RESULT_SUCCEEDED)
+  {
+      console::log("Failed to open recording\n");
+      return Napi::Boolean::New(env, false);
+  }
+
+  if (k4a_playback_get_record_configuration(playback_handle, &playback_config) != K4A_RESULT_SUCCEEDED)
+  {
+      console::log("Failed to read config\n");
+      return Napi::Boolean::New(env, false);
+  }
+
+  g_playbackProps.recording_length = k4a_playback_get_recording_length_usec(playback_handle);
+  
+  is_playbackFileOpen = true;
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
+  
+  Napi::Env env = info.Env();
+   if (!is_playbackFileOpen){
+    Napi::TypeError::New(env, "No playback file is open")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  is_playing = true;
+
+  Napi::Object js_config =  info[0].As<Napi::Object>();
+  Napi::Value js_color_format = js_config.Get("color_format");
+  if (js_color_format.IsNumber())
+  {
+    k4a_image_format_t target_format = (k4a_image_format_t) js_color_format.As<Napi::Number>().Int32Value();
+    if (k4a_playback_set_color_conversion(playback_handle, target_format) != K4A_RESULT_SUCCEEDED)
+    {
+        printf("Failed to read config\n");
+        return Napi::Boolean::New(env, false);
+    }
+  }
+
+  Napi::Value js_camera_fps = js_config.Get("camera_fps");
+  if (js_camera_fps.IsNumber())
+  {
+    g_playbackProps.playback_fps = js_camera_fps.As<Napi::Number>().Int32Value();
+  } else {
+    g_playbackProps.playback_fps = playback_config.camera_fps;
+  }
+
+  if (g_playbackProps.playback_fps == 0) g_playbackProps.playback_fps = 5;
+  else if (g_playbackProps.playback_fps == 1) g_playbackProps.playback_fps = 15;
+  else if (g_playbackProps.playback_fps == 2) g_playbackProps.playback_fps = 30;
+
+  console::log(g_playbackProps.playback_fps);
+  k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  deviceConfig.color_resolution = (k4a_color_resolution_t) playback_config.color_resolution;
+  deviceConfig.depth_mode = (k4a_depth_mode_t) playback_config.depth_mode;
+
+  copyCustomConfig(js_config);
+  
+  g_deviceConfig = deviceConfig;
+
+  k4a_playback_get_calibration(playback_handle, &g_calibration);
+
+  // TODO: read other config values from file
   return Napi::Boolean::New(env, true);
 }
 
@@ -69,13 +219,15 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   }
 
   k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  // deviceConfig.synchronized_images_only = false;
+  
   Napi::Object js_config =  info[0].As<Napi::Object>();
   Napi::Value js_camera_fps = js_config.Get("camera_fps");
   if (js_camera_fps.IsNumber())
   {
     deviceConfig.camera_fps = (k4a_fps_t) js_camera_fps.As<Napi::Number>().Int32Value();
   }
+
+
 
   Napi::Value js_color_format = js_config.Get("color_format");
   if (js_color_format.IsNumber())
@@ -95,24 +247,16 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
     deviceConfig.depth_mode = (k4a_depth_mode_t) js_depth_mode.As<Napi::Number>().Int32Value();
   }
 
-  g_customDeviceConfig.reset();
-  Napi::Value js_include_depth_to_color = js_config.Get("include_depth_to_color");
-  if (js_include_depth_to_color.IsBoolean())
+  Napi::Value js_synchronized_images_only = js_config.Get("synchronized_images_only");
+  if (js_synchronized_images_only.IsBoolean())
   {
-    g_customDeviceConfig.include_depth_to_color = js_include_depth_to_color.As<Napi::Boolean>();
-  }
-  Napi::Value js_include_color_to_depth = js_config.Get("include_color_to_depth");
-  if (js_include_color_to_depth.IsBoolean())
-  {
-    g_customDeviceConfig.include_color_to_depth = js_include_color_to_depth.As<Napi::Boolean>();
-  }
-  Napi::Value js_flip_BGRA_to_RGBA = js_config.Get("flip_BGRA_to_RGBA");
-  if (js_flip_BGRA_to_RGBA.IsBoolean())
-  {
-    g_customDeviceConfig.flip_BGRA_to_RGBA = js_flip_BGRA_to_RGBA.As<Napi::Boolean>();
+    deviceConfig.synchronized_images_only = js_synchronized_images_only.As<Napi::Boolean>();
   }
 
+  copyCustomConfig(js_config);
+
   g_deviceConfig = deviceConfig;
+  
   k4a_device_start_cameras(g_device, &g_deviceConfig);
 
   k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
@@ -158,7 +302,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   }
 
   is_listening = true;
-
   if (info.Length() < 1) {
     Napi::TypeError::New(env, "Wrong number of arguments")
         .ThrowAsJavaScriptException();
@@ -181,6 +324,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
 
   threadJoinedMutex.lock();
   nativeThread = std::thread( [] {
+    
     auto callback = []( Napi::Env env, Napi::Function jsCallback, JSFrame* jsFrameRef ) {
       if (!is_listening) {
         // printf("[kinect_azure.cc] callback not listening\n");
@@ -294,17 +438,35 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       mtx.unlock();
     };
 
-    uint8_t* rgba_data = NULL;
+    uint8_t* processed_color_data = NULL;
+    uint8_t* processed_depth_data = NULL;
+    
     JSFrame jsFrame;
     while(is_listening)
     {
       k4a_capture_t sensor_capture;
-      k4a_wait_result_t get_capture_result = k4a_device_get_capture(g_device, &sensor_capture, 0);
-      if (get_capture_result != K4A_WAIT_RESULT_SUCCEEDED)
-      {
-        // printf("[kinect_azure.cc] get_capture_result != K4A_WAIT_RESULT_SUCCEEDED\n");
-        continue;
+      if (is_playing){
+        k4a_stream_result_t get_stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
+        if (get_stream_result == K4A_STREAM_RESULT_SUCCEEDED)
+        {
+          int milliseconds = round(1000 / g_playbackProps.playback_fps);
+          std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+        } else if (get_stream_result == K4A_STREAM_RESULT_EOF) {
+            // End of file reached
+            k4a_playback_seek_timestamp(playback_handle, 0, K4A_PLAYBACK_SEEK_BEGIN);
+            continue;
+        }else {
+          continue;
+        }
+      } else {
+        k4a_wait_result_t get_capture_result = k4a_device_get_capture(g_device, &sensor_capture, 0);
+        if (get_capture_result != K4A_WAIT_RESULT_SUCCEEDED)
+        {
+          // printf("[kinect_azure.cc] get_capture_result != K4A_WAIT_RESULT_SUCCEEDED\n");
+          continue;
+        }
       }
+      
       // Create new data
       mtx.lock();
       // printf("[kinect_azure.cc] jsFrame.reset\n");
@@ -328,8 +490,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             jsFrame.depthImageFrame.height = k4a_image_get_height_pixels(depth_image);
             jsFrame.depthImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_image);
             jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
-            uint8_t* image_data = k4a_image_get_buffer(depth_image);
-            memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
           }
         }
         // capture the IR image
@@ -341,8 +501,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.irImageFrame.height = k4a_image_get_height_pixels(ir_image);
           jsFrame.irImageFrame.stride_bytes = k4a_image_get_stride_bytes(ir_image);
           jsFrame.irImageFrame.image_data = new uint8_t[jsFrame.irImageFrame.image_length];
-          uint8_t* image_data = k4a_image_get_buffer(ir_image);
-          memcpy(jsFrame.irImageFrame.image_data, image_data, jsFrame.irImageFrame.image_length);
         }
       }
       if (g_deviceConfig.color_resolution != K4A_COLOR_RESOLUTION_OFF)
@@ -356,36 +514,35 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           jsFrame.colorImageFrame.height = k4a_image_get_height_pixels(color_image);
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
-          uint8_t* image_data = k4a_image_get_buffer(color_image);
-          if (g_customDeviceConfig.flip_BGRA_to_RGBA != true){
-            memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
-          } else {
-            if (rgba_data == NULL)
-              rgba_data = new uint8_t[jsFrame.colorImageFrame.image_length];
-            
-            for( int i = 0; i < jsFrame.colorImageFrame.image_length; i+=4 ) {
-              rgba_data[i] = image_data[i+2];
-              rgba_data[i+1] = image_data[i+1];
-              rgba_data[i+2] = image_data[i];
-              rgba_data[i+3] = image_data[i+3];
-            }
-            memcpy(jsFrame.colorImageFrame.image_data, rgba_data, jsFrame.colorImageFrame.image_length);
-          }
         }
       }
+
       if (g_customDeviceConfig.include_depth_to_color)
       {
+        
         if(k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16, jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height, jsFrame.colorImageFrame.width * 2, &depth_to_color_image) == K4A_RESULT_SUCCEEDED)
         {
+          jsFrame.depthToColorImageFrame.height = 10;
+      
           if(k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
           {
-            jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
+            jsFrame.depthToColorImageFrame.width = 10;
+        
             jsFrame.depthToColorImageFrame.width = k4a_image_get_width_pixels(depth_to_color_image);
             jsFrame.depthToColorImageFrame.height = k4a_image_get_height_pixels(depth_to_color_image);
-            jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
-            jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
-            uint8_t* image_data = k4a_image_get_buffer(depth_to_color_image);
-            memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
+            
+            if (g_customDeviceConfig.flip_BGRA_to_RGBA == true || g_customDeviceConfig.apply_depth_to_alpha == true){
+              jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(color_image);
+              jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
+              jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+
+            } else {
+              jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
+              jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
+              jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
+            }
+          } else {
+            jsFrame.depthToColorImageFrame.width = 1;
           }
         }
       }
@@ -400,37 +557,113 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             jsFrame.colorToDepthImageFrame.height = k4a_image_get_height_pixels(color_to_depth_image);
             jsFrame.colorToDepthImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_to_depth_image);
             jsFrame.colorToDepthImageFrame.image_data = new uint8_t[jsFrame.colorToDepthImageFrame.image_length];
-            uint8_t* image_data = k4a_image_get_buffer(color_to_depth_image);
-            memcpy(jsFrame.colorToDepthImageFrame.image_data, image_data, jsFrame.colorToDepthImageFrame.image_length);
           }
         }
       }
-      // release the image handles
-      if (depth_image != NULL)
-      {
+
+
+      if (depth_image != NULL){
+        uint8_t* image_data = k4a_image_get_buffer(depth_image);
+        memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
         k4a_image_release(depth_image);
         depth_image = NULL;
       }
-      if (color_image != NULL)
-      {
-        k4a_image_release(color_image);
-        color_image = NULL;
-      }
-      if (ir_image != NULL)
-      {
+
+      if (ir_image != NULL){
+        uint8_t* image_data = k4a_image_get_buffer(ir_image);
+        memcpy(jsFrame.irImageFrame.image_data, image_data, jsFrame.irImageFrame.image_length);
         k4a_image_release(ir_image);
         ir_image = NULL;
       }
+
+      if (color_image != NULL){
+        uint8_t* image_data = k4a_image_get_buffer(color_image);
+        if (processed_color_data == NULL)
+            processed_color_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+
+        if (g_customDeviceConfig.flip_BGRA_to_RGBA == true || g_customDeviceConfig.apply_depth_to_alpha == true){
+          if (g_customDeviceConfig.flip_BGRA_to_RGBA == true){
+            for( int i = 0; i < jsFrame.colorImageFrame.image_length; i+=4 ) {
+              processed_color_data[i] = image_data[i+2];
+              processed_color_data[i+1] = image_data[i+1];
+              processed_color_data[i+2] = image_data[i];
+              processed_color_data[i+3] = image_data[i+3];
+            }
+          } else {
+            memcpy(processed_color_data, image_data, jsFrame.colorImageFrame.image_length);
+          }
+          if (g_customDeviceConfig.apply_depth_to_alpha == true){
+            depthPixelIndex = 0;
+            depth_to_color_data = k4a_image_get_buffer(depth_to_color_image);
+            
+            for( int i = 0; i < jsFrame.colorImageFrame.image_length; i+=4 ) {
+              combined = (depth_to_color_data[depthPixelIndex+1] << 8) | (depth_to_color_data[depthPixelIndex] & 0xff);
+              normalizedValue = map(combined, g_customDeviceConfig.min_depth, g_customDeviceConfig.max_depth, 255, 0);
+              if (normalizedValue >= 0xF0) normalizedValue = 0;
+              processed_color_data[i+3] = normalizedValue;
+              depthPixelIndex += 2;
+            }
+          } 
+          memcpy(jsFrame.colorImageFrame.image_data, processed_color_data, jsFrame.colorImageFrame.image_length);
+        } else {
+          memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
+        }
+
+        k4a_image_release(color_image);
+        color_image = NULL;
+      }
+      
       if (depth_to_color_image != NULL)
       {
+        uint8_t* image_data = k4a_image_get_buffer(depth_to_color_image);
+        if (g_customDeviceConfig.depth_to_greyscale == true || g_customDeviceConfig.depth_to_redblue){
+
+          if (processed_depth_data == NULL)
+            processed_depth_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+
+          depthPixelIndex = 0;
+          if (g_customDeviceConfig.depth_to_greyscale == true){
+            
+            for( int i = 0; i < jsFrame.depthToColorImageFrame.image_length; i+=4 ) {
+              combined = (image_data[depthPixelIndex+1] << 8) | (image_data[depthPixelIndex] & 0xff);
+              normalizedValue = map(combined, g_customDeviceConfig.min_depth, g_customDeviceConfig.max_depth, 255, 0);
+              if (normalizedValue >= 0xF0) normalizedValue = 0;
+              processed_depth_data[i] = normalizedValue;
+              processed_depth_data[i+1] = normalizedValue;
+              processed_depth_data[i+2] = normalizedValue;
+              processed_depth_data[i+3] = 0xFF;
+              depthPixelIndex += 2;
+            }
+            
+          } else if (g_customDeviceConfig.depth_to_redblue == true){
+            for( int i = 0; i < jsFrame.depthToColorImageFrame.image_length; i+=4 ) {
+              combined = std::min(g_customDeviceConfig.max_depth, std::max(g_customDeviceConfig.min_depth, image_data[depthPixelIndex+1] << 8 | image_data[depthPixelIndex]));
+              float hue = ((float)(combined - g_customDeviceConfig.min_depth) / (float)(g_customDeviceConfig.max_depth - g_customDeviceConfig.min_depth));
+              hue = 1 - hue;
+              colorUtils::hsvToRgb(hue * 0xFF, 1.0f, 1.0f, rgb);
+              processed_depth_data[i] = rgb[0];
+              processed_depth_data[i+1] = rgb[1];
+              processed_depth_data[i+2] = rgb[2];
+              processed_depth_data[i+3] = 0xFF;
+              depthPixelIndex += 2;
+            }
+          }
+          memcpy(jsFrame.depthToColorImageFrame.image_data, processed_depth_data, jsFrame.depthToColorImageFrame.image_length);
+        } else {
+          memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
+        }
+        
         k4a_image_release(depth_to_color_image);
         depth_to_color_image = NULL;
       }
       if (color_to_depth_image != NULL)
       {
+        uint8_t* image_data = k4a_image_get_buffer(color_to_depth_image);
+        memcpy(jsFrame.colorToDepthImageFrame.image_data, image_data, jsFrame.colorToDepthImageFrame.image_length);
         k4a_image_release(color_to_depth_image);
         color_to_depth_image = NULL;
       }
+
       #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
       // printf("[kinect_azure.cc] check tracker\n");
       if (g_tracker != NULL)
@@ -519,11 +752,18 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       }
     }
 
-    if (rgba_data != NULL) {
-      delete[] rgba_data;
-      rgba_data = NULL;
+    if (processed_color_data != NULL) {
+      delete[] processed_color_data;
+      processed_color_data = NULL;
     }
+
+    if (processed_depth_data != NULL) {
+      delete[] processed_depth_data;
+      processed_depth_data = NULL;
+    }
+
     
+
     if (transformer != NULL)
     {
       k4a_transformation_destroy(transformer);
@@ -582,6 +822,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function::New(env, MethodInit));
   exports.Set(Napi::String::New(env, "getInstalledCount"),
     Napi::Function::New(env, MethodGetInstalledCount));
+  exports.Set(Napi::String::New(env, "openPlayback"),
+    Napi::Function::New(env, MethodOpenPlayback));
+  exports.Set(Napi::String::New(env, "startPlayback"),
+    Napi::Function::New(env, MethodStartPlayback));
   exports.Set(Napi::String::New(env, "open"),
     Napi::Function::New(env, MethodOpen));
   exports.Set(Napi::String::New(env, "close"),
