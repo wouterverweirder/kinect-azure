@@ -383,7 +383,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   nativeThread = std::thread( [] {
     
     auto callback = []( Napi::Env env, Napi::Function jsCallback, JSFrame* jsFrameRef ) {
-      if (!is_listening) {
+      if (!is_listening || (is_paused && !is_seeking)) {
         // printf("[kinect_azure.cc] callback not listening\n");
         return;
       }
