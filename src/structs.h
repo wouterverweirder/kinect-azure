@@ -96,6 +96,8 @@ typedef struct _CustomDeviceConfig
 	bool include_color_to_depth = false;
 	bool flip_BGRA_to_RGBA = false;
 	bool apply_depth_to_alpha = false;
+	bool depth_to_greyscale = false;
+	bool depth_to_redblue = false;
 	int min_depth = 100;
 	int max_depth = 3000;
 	
@@ -104,6 +106,8 @@ typedef struct _CustomDeviceConfig
 		include_color_to_depth = false;
 		flip_BGRA_to_RGBA = false;
 		apply_depth_to_alpha = false;
+		depth_to_greyscale = false;
+		depth_to_redblue = false;
 		min_depth = 100;
 		max_depth = 3000;
 	}

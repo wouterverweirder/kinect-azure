@@ -14,6 +14,8 @@
 #include "console.cc"
 #include <chrono>
 #include <math.h>
+#include "colorUtils.cc"
+#include <algorithm>
 
 k4a_device_t g_device = NULL;
 k4a_device_configuration_t g_deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -40,41 +42,42 @@ PlaybackProps g_playbackProps;
 
 int depthPixelIndex = 0;
 uint8_t* depth_to_color_data = NULL;
-unsigned short combined = 0;
+float combined = 0;
 int normalizedValue = 0;
+int rgb[3];
+
+inline bool convertToBool(const char* key, Napi::Object js_config, bool currentValue) {
+  Napi::Value js_value = js_config.Get(key);
+  if (js_value.IsBoolean())
+  {
+   return js_value.As<Napi::Boolean>();
+  }
+  return currentValue;
+}
+
+inline int convertToNumber(const char* key, Napi::Object js_config, int currentValue) {
+  Napi::Value js_value = js_config.Get(key);
+  if (js_value.IsNumber())
+  {
+   return js_value.As<Napi::Number>();
+  }
+  return currentValue;
+}
 
 void copyCustomConfig(Napi::Object js_config){
   g_customDeviceConfig.reset();
-  Napi::Value js_include_depth_to_color = js_config.Get("include_depth_to_color");
-  if (js_include_depth_to_color.IsBoolean())
-  {
-    g_customDeviceConfig.include_depth_to_color = js_include_depth_to_color.As<Napi::Boolean>();
-  }
-  Napi::Value js_include_color_to_depth = js_config.Get("include_color_to_depth");
-  if (js_include_color_to_depth.IsBoolean())
-  {
-    g_customDeviceConfig.include_color_to_depth = js_include_color_to_depth.As<Napi::Boolean>();
-  }
-  Napi::Value js_flip_BGRA_to_RGBA = js_config.Get("flip_BGRA_to_RGBA");
-  if (js_flip_BGRA_to_RGBA.IsBoolean())
-  {
-    g_customDeviceConfig.flip_BGRA_to_RGBA = js_flip_BGRA_to_RGBA.As<Napi::Boolean>();
-  }
-  Napi::Value js_apply_depth_to_alpha = js_config.Get("apply_depth_to_alpha");
-  if (js_apply_depth_to_alpha.IsBoolean())
-  {
-    g_customDeviceConfig.apply_depth_to_alpha = js_apply_depth_to_alpha.As<Napi::Boolean>();
-  }
-  Napi::Value js_min_depth = js_config.Get("min_depth");
-  if (js_min_depth.IsNumber())
-  {
-    g_customDeviceConfig.min_depth = js_min_depth.As<Napi::Number>();
-  }
-  Napi::Value js_max_depth = js_config.Get("max_depth");
-  if (js_max_depth.IsNumber())
-  {
-    g_customDeviceConfig.max_depth = js_max_depth.As<Napi::Number>();
-  }
+  g_customDeviceConfig.include_color_to_depth = convertToBool("include_color_to_depth", js_config,  g_customDeviceConfig.include_color_to_depth);
+  g_customDeviceConfig.flip_BGRA_to_RGBA = convertToBool("flip_BGRA_to_RGBA", js_config,  g_customDeviceConfig.flip_BGRA_to_RGBA);
+  g_customDeviceConfig.apply_depth_to_alpha = convertToBool("apply_depth_to_alpha", js_config,  g_customDeviceConfig.apply_depth_to_alpha);
+  g_customDeviceConfig.depth_to_greyscale = convertToBool("depth_to_greyscale", js_config,  g_customDeviceConfig.depth_to_greyscale);
+  g_customDeviceConfig.depth_to_redblue = convertToBool("depth_to_redblue", js_config,  g_customDeviceConfig.depth_to_redblue);
+  g_customDeviceConfig.min_depth = convertToNumber("min_depth", js_config, g_customDeviceConfig.min_depth);
+  g_customDeviceConfig.max_depth = convertToNumber("max_depth", js_config, g_customDeviceConfig.max_depth);
+  g_customDeviceConfig.include_depth_to_color = convertToBool("include_depth_to_color", js_config, g_customDeviceConfig.include_depth_to_color) 
+    ||  g_customDeviceConfig.apply_depth_to_alpha 
+    ||  g_customDeviceConfig.depth_to_greyscale 
+    ||  g_customDeviceConfig.depth_to_redblue;
+  
 }
 
 inline int map (float value, int inputMin, int inputMax, int outputMin, int outputMax) {
@@ -436,6 +439,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
     };
 
     uint8_t* processed_color_data = NULL;
+    uint8_t* processed_depth_data = NULL;
     
     JSFrame jsFrame;
     while(is_listening)
@@ -513,7 +517,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         }
       }
 
-      if (g_customDeviceConfig.include_depth_to_color || g_customDeviceConfig.apply_depth_to_alpha)
+      if (g_customDeviceConfig.include_depth_to_color)
       {
         
         if(k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16, jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height, jsFrame.colorImageFrame.width * 2, &depth_to_color_image) == K4A_RESULT_SUCCEEDED)
@@ -523,12 +527,20 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           if(k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
           {
             jsFrame.depthToColorImageFrame.width = 10;
-      
-            jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
+        
             jsFrame.depthToColorImageFrame.width = k4a_image_get_width_pixels(depth_to_color_image);
             jsFrame.depthToColorImageFrame.height = k4a_image_get_height_pixels(depth_to_color_image);
-            jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
-            jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
+            
+            if (g_customDeviceConfig.flip_BGRA_to_RGBA == true || g_customDeviceConfig.apply_depth_to_alpha == true){
+              jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(color_image);
+              jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
+              jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+
+            } else {
+              jsFrame.depthToColorImageFrame.image_length = k4a_image_get_size(depth_to_color_image);
+              jsFrame.depthToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_to_color_image);
+              jsFrame.depthToColorImageFrame.image_data = new uint8_t[jsFrame.depthToColorImageFrame.image_length];
+            }
           } else {
             jsFrame.depthToColorImageFrame.width = 1;
           }
@@ -589,7 +601,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
               normalizedValue = map(combined, g_customDeviceConfig.min_depth, g_customDeviceConfig.max_depth, 255, 0);
               if (normalizedValue >= 0xF0) normalizedValue = 0;
               processed_color_data[i+3] = normalizedValue;
-              
               depthPixelIndex += 2;
             }
           } 
@@ -605,7 +616,43 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (depth_to_color_image != NULL)
       {
         uint8_t* image_data = k4a_image_get_buffer(depth_to_color_image);
-        memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
+        if (g_customDeviceConfig.depth_to_greyscale == true || g_customDeviceConfig.depth_to_redblue){
+
+          if (processed_depth_data == NULL)
+            processed_depth_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+
+          depthPixelIndex = 0;
+          if (g_customDeviceConfig.depth_to_greyscale == true){
+            
+            for( int i = 0; i < jsFrame.depthToColorImageFrame.image_length; i+=4 ) {
+              combined = (image_data[depthPixelIndex+1] << 8) | (image_data[depthPixelIndex] & 0xff);
+              normalizedValue = map(combined, g_customDeviceConfig.min_depth, g_customDeviceConfig.max_depth, 255, 0);
+              if (normalizedValue >= 0xF0) normalizedValue = 0;
+              processed_depth_data[i] = normalizedValue;
+              processed_depth_data[i+1] = normalizedValue;
+              processed_depth_data[i+2] = normalizedValue;
+              processed_depth_data[i+3] = 0xFF;
+              depthPixelIndex += 2;
+            }
+            
+          } else if (g_customDeviceConfig.depth_to_redblue == true){
+            for( int i = 0; i < jsFrame.depthToColorImageFrame.image_length; i+=4 ) {
+              combined = std::min(g_customDeviceConfig.max_depth, std::max(g_customDeviceConfig.min_depth, image_data[depthPixelIndex+1] << 8 | image_data[depthPixelIndex]));
+              float hue = ((float)(combined - g_customDeviceConfig.min_depth) / (float)(g_customDeviceConfig.max_depth - g_customDeviceConfig.min_depth));
+              hue = 1 - hue;
+              colorUtils::hsvToRgb(hue * 0xFF, 1.0f, 1.0f, rgb);
+              processed_depth_data[i] = rgb[0];
+              processed_depth_data[i+1] = rgb[1];
+              processed_depth_data[i+2] = rgb[2];
+              processed_depth_data[i+3] = 0xFF;
+              depthPixelIndex += 2;
+            }
+          }
+          memcpy(jsFrame.depthToColorImageFrame.image_data, processed_depth_data, jsFrame.depthToColorImageFrame.image_length);
+        } else {
+          memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
+        }
+        
         k4a_image_release(depth_to_color_image);
         depth_to_color_image = NULL;
       }
@@ -705,6 +752,17 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       }
     }
 
+    if (processed_color_data != NULL) {
+      delete[] processed_color_data;
+      processed_color_data = NULL;
+    }
+
+    if (processed_depth_data != NULL) {
+      delete[] processed_depth_data;
+      processed_depth_data = NULL;
+    }
+
+    
 
     if (transformer != NULL)
     {
