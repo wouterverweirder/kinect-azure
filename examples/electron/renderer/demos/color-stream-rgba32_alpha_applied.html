@@ -5,19 +5,14 @@
     <title>Kinect Azure Example</title>
     <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
     <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
-    <style>
-      body {
-        background-color: #000000;
-      }
-      </style>
   </head>
   <body class="container-fluid py-3">
     <div class="d-flex align-items-baseline justify-content-between">
-      <h1 class="bd-title">Color Stream (RGBA32)</h1>
+      <h1 class="bd-title">Color Stream within depth range</h1>
       <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
     </div>
     <p>
-      This demo shows the color stream (RGBA32) in an html canvas element. Note that the canvas tag in this demo is resized through css to fit the window. The native image size in this demo is <span id="info">different</span>.
+      This demo shows the color stream (RGBA32) for pixels in a given depth range. Note that the canvas tag in this demo is resized through css to fit the window. The native image size in this demo is <span id="info">different</span>.
     </p>
     <canvas id="outputCanvas" class="img-fluid"></canvas>
     <script>
