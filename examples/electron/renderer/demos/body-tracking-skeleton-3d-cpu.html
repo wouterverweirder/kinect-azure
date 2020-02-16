@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+      <h1 class="bd-title">Body Tracking (3D, CPU mode)</h1>
+      <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+    </div>
+    <p>
+      This demo shows the 3D Skeleton Information in a three.js 3D environment, and uses the CPU instead of GPU.
+    </p>
+    <div class="embed-responsive embed-responsive-16by9">
+      <canvas class="embed-responsive-item" id="outputCanvas"></canvas>
+    </div>
+    <script src="../assets/vendors/three.js/build/three.js"></script>
+    <script src="../assets/vendors/three.js/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      {
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+
+        let bodies = [];
+
+        const canvas = document.getElementById('outputCanvas');
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+
+        const renderer = new THREE.WebGLRenderer({
+          canvas
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        const scene = new THREE.Scene();
+        
+        const camera = new THREE.PerspectiveCamera( 75, canvas.clientWidth / canvas.clientHeight, 0.1, 500 );
+        camera.position.set(-4, 2, -10);
+        camera.lookAt(0, 0, 0);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const gridHelper = new THREE.GridHelper(10, 10);
+		  	scene.add(gridHelper);
+
+        const geometry = new THREE.BoxGeometry( .5, .5, .5 );
+        const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+        // create a bunch of cubes, which we'll use to render the joint positions
+        const jointCubes = [];
+        const numJointCubes = 10 * KinectAzure.K4ABT_JOINT_COUNT;
+        for (let i = 0; i < numJointCubes; i++) {
+          const cube = new THREE.Mesh( geometry, material );
+          scene.add( cube );
+          jointCubes.push(cube);
+        }
+
+        if(kinect.open()) {
+          kinect.startCameras({
+            depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED
+          });
+          kinect.createTracker({
+            processing_mode: KinectAzure.K4ABT_TRACKER_PROCESSING_MODE_CPU
+          });
+          kinect.startListening((data) => {
+            // store the bodies in the global bodies variable
+            // we are rendering them in the animate render loop
+            bodies = data.bodyFrame.bodies;
+          });
+        }
+
+        const resize = () => {
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+          camera.aspect = canvas.clientWidth / canvas.clientHeight;
+          camera.updateProjectionMatrix();
+        };
+        window.addEventListener('resize', resize);
+
+        const animate = () => {
+          requestAnimationFrame( animate );
+
+          let jointCubesPool = jointCubes.concat();
+          bodies.forEach(body => {
+            body.skeleton.joints.forEach(joint => {
+              const cube = jointCubesPool.pop();
+              if (!cube) {
+                return;
+              }
+              // the y-axis is inverted in kinect space
+              // https://docs.microsoft.com/en-us/azure/kinect-dk/coordinate-systems#3d-coordinate-systems
+              cube.position.set(joint.cameraX / 120, -1 * joint.cameraY / 120, joint.cameraZ / 120);
+              cube.visible = true;
+            });
+          });
+          // hide the remaining cubes
+          jointCubesPool.forEach(cube => cube.visible = false);
+
+          renderer.render( scene, camera );
+        }
+
+        // expose the kinect instance to the window object in this demo app to allow the parent window to close it between sessions
+        window.kinect = kinect;
+        animate();
+      }
+    </script>
+  </body>
+</html>

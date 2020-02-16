@@ -11,7 +11,6 @@
   #include <k4abt.h>
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 #include "structs.h"
-#include "console.cc"
 #include <chrono>
 #include <math.h>
 #include "colorUtils.cc"
@@ -92,16 +91,6 @@ inline int map (float value, int inputMin, int inputMax, int outputMin, int outp
 
 Napi::Value MethodInit(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Wrong number of arguments")
-        .ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  // first argument is emit function
-  Napi::Function emit = info[0].As<Napi::Function>();
-  //g_emit = Napi::Persistent(emit);
-  console::init(env, emit);
   return Napi::Boolean::New(env, true);
 }
 
@@ -113,7 +102,6 @@ Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo& info) {
 
 Napi::Value MethodOpen(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  console::log("open");
   k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
   return Napi::Boolean::New(env, true);
 }
@@ -138,18 +126,15 @@ Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
         .ThrowAsJavaScriptException();
     return env.Null();
   }
-  console::log("openPlayback");
   Napi::String js_path = info[0].As<Napi::String>();
   
   if (k4a_playback_open(js_path.Utf8Value().c_str(), &playback_handle) != K4A_RESULT_SUCCEEDED)
   {
-      console::log("Failed to open recording\n");
       return Napi::Boolean::New(env, false);
   }
 
   if (k4a_playback_get_record_configuration(playback_handle, &playback_config) != K4A_RESULT_SUCCEEDED)
   {
-      console::log("Failed to read config\n");
       return Napi::Boolean::New(env, false);
   }
 
@@ -200,7 +185,6 @@ Napi::Value MethodStartPlayback(const Napi::CallbackInfo& info) {
   else if (g_playbackProps.playback_fps == 1) g_playbackProps.playback_fps = 15;
   else if (g_playbackProps.playback_fps == 2) g_playbackProps.playback_fps = 30;
 
-  console::log(g_playbackProps.playback_fps);
   k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
   deviceConfig.color_resolution = (k4a_color_resolution_t) playback_config.color_resolution;
   deviceConfig.depth_mode = (k4a_depth_mode_t) playback_config.depth_mode;
@@ -333,6 +317,26 @@ Napi::Value MethodCreateTracker(const Napi::CallbackInfo& info) {
   k4a_calibration_t sensor_calibration;
   k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &sensor_calibration);
   k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
+
+  if (info.Length() > 0) {
+      Napi::Object js_config =  info[0].As<Napi::Object>();
+      Napi::Value js_sensor_orientation = js_config.Get("sensor_orientation");
+      if (js_sensor_orientation.IsNumber())
+      {
+        tracker_config.sensor_orientation = (k4abt_sensor_orientation_t) js_sensor_orientation.As<Napi::Number>().Int32Value();
+      }
+      Napi::Value js_processing_mode = js_config.Get("processing_mode");
+      if (js_processing_mode.IsNumber())
+      {
+        tracker_config.processing_mode = (k4abt_tracker_processing_mode_t) js_processing_mode.As<Napi::Number>().Int32Value();
+      }
+      Napi::Value js_gpu_device_id = js_config.Get("gpu_device_id");
+      if (js_gpu_device_id.IsNumber())
+      {
+        tracker_config.gpu_device_id = (int32_t) js_gpu_device_id.As<Napi::Number>().Int32Value();
+      }
+  }
+  
   k4abt_tracker_create(&sensor_calibration, tracker_config, &g_tracker);
   return Napi::Boolean::New(env, true);
 }
