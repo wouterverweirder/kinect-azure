@@ -883,45 +883,103 @@ Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
   return info.Env().Undefined();
 }
 
+// modes
+//K4A_COLOR_CONTROL_MODE_AUTO
+//
+
+void setColorControl(const Napi::CallbackInfo& info, k4a_color_control_command_t command, k4a_color_control_mode_t mode, bool allowAuto) {
+  Napi::Value js_value =  info[0].As<Napi::Object>();
+  if (js_value.IsNull() && allowAuto == true){
+    k4a_device_set_color_control(g_device, command, K4A_COLOR_CONTROL_MODE_MANUAL, 0);
+  }
+  else if (js_value.IsNumber())
+  {
+    int32_t value = (int32_t) js_value.As<Napi::Number>().Int32Value();
+    k4a_device_set_color_control(g_device, command, mode, value);
+  }
+}
+
+Napi::Value MethodSetExposure(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE, K4A_COLOR_CONTROL_MODE_MANUAL, true);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetAutoExposurePriority(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_AUTO_EXPOSURE_PRIORITY, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetBrightness(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_BRIGHTNESS, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetContrast(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_CONTRAST, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetSaturation(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_SATURATION, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetSharpness(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_SHARPNESS, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetWhiteBalance(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_WHITEBALANCE, K4A_COLOR_CONTROL_MODE_MANUAL, true);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetBacklightCompensation(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_BACKLIGHT_COMPENSATION, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetGain(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_GAIN, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
+Napi::Value MethodSetPowerlineFrequency(const Napi::CallbackInfo& info) {
+  setColorControl(info, K4A_COLOR_CONTROL_POWERLINE_FREQUENCY, K4A_COLOR_CONTROL_MODE_MANUAL, false);
+  return info.Env().Undefined();
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  exports.Set(Napi::String::New(env, "init"),
-    Napi::Function::New(env, MethodInit));
-  exports.Set(Napi::String::New(env, "getInstalledCount"),
-    Napi::Function::New(env, MethodGetInstalledCount));
-  exports.Set(Napi::String::New(env, "openPlayback"),
-    Napi::Function::New(env, MethodOpenPlayback));
-  exports.Set(Napi::String::New(env, "startPlayback"),
-    Napi::Function::New(env, MethodStartPlayback));
-  exports.Set(Napi::String::New(env, "stopPlayback"),
-    Napi::Function::New(env, MethodStopPlayback));
-  exports.Set(Napi::String::New(env, "pause"),
-    Napi::Function::New(env, MethodPause));
-  exports.Set(Napi::String::New(env, "resume"),
-    Napi::Function::New(env, MethodResume));
-  exports.Set(Napi::String::New(env, "seek"),
-    Napi::Function::New(env, MethodSeek));
-  exports.Set(Napi::String::New(env, "time"),
-    Napi::Function::New(env, MethodTime));
-  exports.Set(Napi::String::New(env, "duration"),
-    Napi::Function::New(env, MethodDuration));
-  exports.Set(Napi::String::New(env, "open"),
-    Napi::Function::New(env, MethodOpen));
-  exports.Set(Napi::String::New(env, "close"),
-    Napi::Function::New(env, MethodClose));
-  exports.Set(Napi::String::New(env, "startCameras"),
-    Napi::Function::New(env, MethodStartCameras));
-  exports.Set(Napi::String::New(env, "stopCameras"),
-    Napi::Function::New(env, MethodStopCameras));
+  exports.Set(Napi::String::New(env, "init"), Napi::Function::New(env, MethodInit));
+  exports.Set(Napi::String::New(env, "getInstalledCount"), Napi::Function::New(env, MethodGetInstalledCount));
+  exports.Set(Napi::String::New(env, "openPlayback"), Napi::Function::New(env, MethodOpenPlayback));
+  exports.Set(Napi::String::New(env, "startPlayback"), Napi::Function::New(env, MethodStartPlayback));
+  exports.Set(Napi::String::New(env, "stopPlayback"), Napi::Function::New(env, MethodStopPlayback));
+  exports.Set(Napi::String::New(env, "pause"), Napi::Function::New(env, MethodPause));
+  exports.Set(Napi::String::New(env, "resume"), Napi::Function::New(env, MethodResume));
+  exports.Set(Napi::String::New(env, "seek"), Napi::Function::New(env, MethodSeek));
+  exports.Set(Napi::String::New(env, "time"), Napi::Function::New(env, MethodTime));
+  exports.Set(Napi::String::New(env, "duration"), Napi::Function::New(env, MethodDuration));
+  exports.Set(Napi::String::New(env, "open"), Napi::Function::New(env, MethodOpen));
+  exports.Set(Napi::String::New(env, "close"), Napi::Function::New(env, MethodClose));
+  exports.Set(Napi::String::New(env, "startCameras"), Napi::Function::New(env, MethodStartCameras));
+  exports.Set(Napi::String::New(env, "stopCameras"), Napi::Function::New(env, MethodStopCameras));
   #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
-  exports.Set(Napi::String::New(env, "createTracker"),
-    Napi::Function::New(env, MethodCreateTracker));
-  exports.Set(Napi::String::New(env, "destroyTracker"),
-    Napi::Function::New(env, MethodDestroyTracker));
+  exports.Set(Napi::String::New(env, "createTracker"), Napi::Function::New(env, MethodCreateTracker));
+  exports.Set(Napi::String::New(env, "destroyTracker"), Napi::Function::New(env, MethodDestroyTracker));
   #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
-  exports.Set(Napi::String::New(env, "startListening"),
-    Napi::Function::New(env, MethodStartListening));
-  exports.Set(Napi::String::New(env, "stopListening"),
-    Napi::Function::New(env, MethodStopListening));
+  exports.Set(Napi::String::New(env, "startListening"), Napi::Function::New(env, MethodStartListening));
+  exports.Set(Napi::String::New(env, "stopListening"), Napi::Function::New(env, MethodStopListening));
+  exports.Set(Napi::String::New(env, "setExposure"), Napi::Function::New(env, MethodSetExposure));
+  exports.Set(Napi::String::New(env, "setAutoExposurePriority"), Napi::Function::New(env, MethodSetAutoExposurePriority));
+  exports.Set(Napi::String::New(env, "setBrightness"), Napi::Function::New(env, MethodSetBrightness));
+  exports.Set(Napi::String::New(env, "setContrast"), Napi::Function::New(env, MethodSetContrast));
+  exports.Set(Napi::String::New(env, "setSaturation"), Napi::Function::New(env, MethodSetSaturation));
+  exports.Set(Napi::String::New(env, "setSharpness"), Napi::Function::New(env, MethodSetSharpness));
+  exports.Set(Napi::String::New(env, "setWhiteBalance"), Napi::Function::New(env, MethodSetWhiteBalance));
+  exports.Set(Napi::String::New(env, "setBacklightCompensation"), Napi::Function::New(env, MethodSetBacklightCompensation));
+  exports.Set(Napi::String::New(env, "setGain"), Napi::Function::New(env, MethodSetGain));
+  exports.Set(Napi::String::New(env, "setPowerlineFrequency"), Napi::Function::New(env, MethodSetPowerlineFrequency));
   return exports;
 }
 
