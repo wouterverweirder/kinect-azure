@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
+const os = require('os');
 const download = require('download');
 const extract = require('extract-zip');
 const settings = require('../lib/settings.js')();
@@ -64,4 +65,8 @@ const extractFile = (zipPath, dir) => {
   });
 };
 
-init();
+if (os.type() === 'Windows_NT') {
+  init();
+} else {
+  console.log('Platform not supported');
+}
