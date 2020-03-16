@@ -4,8 +4,9 @@ const os = require('os');
 const download = require('download');
 const extract = require('extract-zip');
 const settings = require('../lib/settings.js')();
+const exec = require('child_process').exec;
 
-const init = async () => {
+const init = async (callback) => {
   await fs.ensureDir(settings.TARGET_SDK_DIR);
   if (!(await fs.pathExists(settings.TARGET_KINECT_SENSOR_SDK_ZIP))) {
     console.log('downloading sensor sdk');
@@ -66,7 +67,33 @@ const extractFile = (zipPath, dir) => {
 };
 
 if (os.type() === 'Windows_NT') {
-  init();
+  init(() => {
+    console.log('sdk download complete');
+    
+    const ls = exec('node-gyp rebuild');
+
+    ls.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
+    });
+
+    ls.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+    });
+
+    ls.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+
+      if (os.type() === 'Darwin') {
+          npm.load(() => npm.run("package-mac"));
+      }
+      else if (os.type() === 'Windows_NT') {
+          npm.load(() => npm.run("package-win"));
+      }
+      else
+          throw new Error("Unsupported OS found: " + os.type());
+    });
+  });
+  //
 } else {
   console.log('Platform not supported');
 }
