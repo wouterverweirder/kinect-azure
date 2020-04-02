@@ -6,11 +6,13 @@ build/
 # Ignore the downloaded SDK
 /sdk
 
-# Ignore the dll files in the root of this module and the examples folders
+# Ignore the dll files in the root of this module and the examples folders and script folders
 /*.dll
 /*.onnx
 /examples/**/*.dll
 /examples/**/*.onnx
+/scripts/*.dll
+/scripts/*.onnx
 
 # Logs
 logs
