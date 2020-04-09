@@ -353,6 +353,41 @@ Napi::Value MethodDestroyTracker(const Napi::CallbackInfo& info) {
 }
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 
+Napi::Value MethodSetColorControl(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 0) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  Napi::Object js_config =  info[0].As<Napi::Object>();
+  Napi::Value js_command = js_config.Get("command");
+  if (!js_command.IsNumber()) {
+    Napi::TypeError::New(env, "missing command")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  k4a_color_control_command_t command = (k4a_color_control_command_t) js_command.As<Napi::Number>().Int32Value();
+
+  Napi::Value js_mode = js_config.Get("mode");
+  if (!js_mode.IsNumber()) {
+    Napi::TypeError::New(env, "missing mode")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  k4a_color_control_mode_t mode = (k4a_color_control_mode_t) js_mode.As<Napi::Number>().Int32Value();
+
+  Napi::Value js_value = js_config.Get("value");
+  if (!js_value.IsNumber()) {
+    Napi::TypeError::New(env, "missing value")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  int32_t value = (int32_t) js_value.As<Napi::Number>().Int32Value();
+  k4a_device_set_color_control(g_device, command, mode, value);
+  return info.Env().Undefined();
+}
+
 Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
@@ -883,72 +918,6 @@ Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
   return info.Env().Undefined();
 }
 
-// modes
-//K4A_COLOR_CONTROL_MODE_AUTO
-//
-
-void setColorControl(const Napi::CallbackInfo& info, k4a_color_control_command_t command, k4a_color_control_mode_t mode, bool allowAuto) {
-  Napi::Value js_value =  info[0].As<Napi::Object>();
-  if (js_value.IsNull() && allowAuto == true){
-    k4a_device_set_color_control(g_device, command, K4A_COLOR_CONTROL_MODE_MANUAL, 0);
-  }
-  else if (js_value.IsNumber())
-  {
-    int32_t value = (int32_t) js_value.As<Napi::Number>().Int32Value();
-    k4a_device_set_color_control(g_device, command, mode, value);
-  }
-}
-
-Napi::Value MethodSetExposure(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE, K4A_COLOR_CONTROL_MODE_MANUAL, true);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetAutoExposurePriority(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_AUTO_EXPOSURE_PRIORITY, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetBrightness(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_BRIGHTNESS, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetContrast(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_CONTRAST, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetSaturation(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_SATURATION, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetSharpness(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_SHARPNESS, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetWhiteBalance(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_WHITEBALANCE, K4A_COLOR_CONTROL_MODE_MANUAL, true);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetBacklightCompensation(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_BACKLIGHT_COMPENSATION, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetGain(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_GAIN, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
-Napi::Value MethodSetPowerlineFrequency(const Napi::CallbackInfo& info) {
-  setColorControl(info, K4A_COLOR_CONTROL_POWERLINE_FREQUENCY, K4A_COLOR_CONTROL_MODE_MANUAL, false);
-  return info.Env().Undefined();
-}
-
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "init"), Napi::Function::New(env, MethodInit));
   exports.Set(Napi::String::New(env, "getInstalledCount"), Napi::Function::New(env, MethodGetInstalledCount));
@@ -968,18 +937,9 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "createTracker"), Napi::Function::New(env, MethodCreateTracker));
   exports.Set(Napi::String::New(env, "destroyTracker"), Napi::Function::New(env, MethodDestroyTracker));
   #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
+  exports.Set(Napi::String::New(env, "setColorControl"), Napi::Function::New(env, MethodSetColorControl));
   exports.Set(Napi::String::New(env, "startListening"), Napi::Function::New(env, MethodStartListening));
   exports.Set(Napi::String::New(env, "stopListening"), Napi::Function::New(env, MethodStopListening));
-  exports.Set(Napi::String::New(env, "setExposure"), Napi::Function::New(env, MethodSetExposure));
-  exports.Set(Napi::String::New(env, "setAutoExposurePriority"), Napi::Function::New(env, MethodSetAutoExposurePriority));
-  exports.Set(Napi::String::New(env, "setBrightness"), Napi::Function::New(env, MethodSetBrightness));
-  exports.Set(Napi::String::New(env, "setContrast"), Napi::Function::New(env, MethodSetContrast));
-  exports.Set(Napi::String::New(env, "setSaturation"), Napi::Function::New(env, MethodSetSaturation));
-  exports.Set(Napi::String::New(env, "setSharpness"), Napi::Function::New(env, MethodSetSharpness));
-  exports.Set(Napi::String::New(env, "setWhiteBalance"), Napi::Function::New(env, MethodSetWhiteBalance));
-  exports.Set(Napi::String::New(env, "setBacklightCompensation"), Napi::Function::New(env, MethodSetBacklightCompensation));
-  exports.Set(Napi::String::New(env, "setGain"), Napi::Function::New(env, MethodSetGain));
-  exports.Set(Napi::String::New(env, "setPowerlineFrequency"), Napi::Function::New(env, MethodSetPowerlineFrequency));
   return exports;
 }
 

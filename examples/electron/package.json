@@ -9,7 +9,7 @@
   "author": "Wouter Verweirder",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^7.1.1",
+    "electron": "^7.2.1",
     "kinect-azure": "file:../../"
   }
 }
