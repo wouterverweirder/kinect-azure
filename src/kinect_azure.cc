@@ -103,14 +103,16 @@ Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo& info) {
 Napi::Value MethodOpen(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
-  return Napi::Boolean::New(env, true);
+  bool returnValue = (g_device == nullptr) ? false : true;
+  return Napi::Boolean::New(env, returnValue);
 }
 
 Napi::Value MethodClose(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   // printf("[kinect_azure.cc] MethodClose\n");
   k4a_device_close(g_device);
-  return Napi::Boolean::New(env, true);
+  bool returnValue = (g_device == nullptr) ? true : false;
+  return Napi::Boolean::New(env, returnValue);
 }
 
 Napi::Value MethodOpenPlayback(const Napi::CallbackInfo& info) {
@@ -232,13 +234,13 @@ Napi::Value MethodSeek(const Napi::CallbackInfo& info) {
 Napi::Value MethodPause(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   is_paused = true;
-  return Napi::Boolean::New(env, true);
+  return Napi::Boolean::New(env, is_paused);
 }
 
 Napi::Value MethodResume(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   is_paused = false;
-  return Napi::Boolean::New(env, true);
+  return Napi::Boolean::New(env, is_paused);
 }
 
 Napi::Value MethodTime(const Napi::CallbackInfo& info) {
