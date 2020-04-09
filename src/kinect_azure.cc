@@ -353,6 +353,41 @@ Napi::Value MethodDestroyTracker(const Napi::CallbackInfo& info) {
 }
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 
+Napi::Value MethodSetColorControl(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 0) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  Napi::Object js_config =  info[0].As<Napi::Object>();
+  Napi::Value js_command = js_config.Get("command");
+  if (!js_command.IsNumber()) {
+    Napi::TypeError::New(env, "missing command")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  k4a_color_control_command_t command = (k4a_color_control_command_t) js_command.As<Napi::Number>().Int32Value();
+
+  Napi::Value js_mode = js_config.Get("mode");
+  if (!js_mode.IsNumber()) {
+    Napi::TypeError::New(env, "missing mode")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  k4a_color_control_mode_t mode = (k4a_color_control_mode_t) js_mode.As<Napi::Number>().Int32Value();
+
+  Napi::Value js_value = js_config.Get("value");
+  if (!js_value.IsNumber()) {
+    Napi::TypeError::New(env, "missing value")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  int32_t value = (int32_t) js_value.As<Napi::Number>().Int32Value();
+  k4a_device_set_color_control(g_device, command, mode, value);
+  return info.Env().Undefined();
+}
+
 Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
@@ -884,44 +919,27 @@ Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  exports.Set(Napi::String::New(env, "init"),
-    Napi::Function::New(env, MethodInit));
-  exports.Set(Napi::String::New(env, "getInstalledCount"),
-    Napi::Function::New(env, MethodGetInstalledCount));
-  exports.Set(Napi::String::New(env, "openPlayback"),
-    Napi::Function::New(env, MethodOpenPlayback));
-  exports.Set(Napi::String::New(env, "startPlayback"),
-    Napi::Function::New(env, MethodStartPlayback));
-  exports.Set(Napi::String::New(env, "stopPlayback"),
-    Napi::Function::New(env, MethodStopPlayback));
-  exports.Set(Napi::String::New(env, "pause"),
-    Napi::Function::New(env, MethodPause));
-  exports.Set(Napi::String::New(env, "resume"),
-    Napi::Function::New(env, MethodResume));
-  exports.Set(Napi::String::New(env, "seek"),
-    Napi::Function::New(env, MethodSeek));
-  exports.Set(Napi::String::New(env, "time"),
-    Napi::Function::New(env, MethodTime));
-  exports.Set(Napi::String::New(env, "duration"),
-    Napi::Function::New(env, MethodDuration));
-  exports.Set(Napi::String::New(env, "open"),
-    Napi::Function::New(env, MethodOpen));
-  exports.Set(Napi::String::New(env, "close"),
-    Napi::Function::New(env, MethodClose));
-  exports.Set(Napi::String::New(env, "startCameras"),
-    Napi::Function::New(env, MethodStartCameras));
-  exports.Set(Napi::String::New(env, "stopCameras"),
-    Napi::Function::New(env, MethodStopCameras));
+  exports.Set(Napi::String::New(env, "init"), Napi::Function::New(env, MethodInit));
+  exports.Set(Napi::String::New(env, "getInstalledCount"), Napi::Function::New(env, MethodGetInstalledCount));
+  exports.Set(Napi::String::New(env, "openPlayback"), Napi::Function::New(env, MethodOpenPlayback));
+  exports.Set(Napi::String::New(env, "startPlayback"), Napi::Function::New(env, MethodStartPlayback));
+  exports.Set(Napi::String::New(env, "stopPlayback"), Napi::Function::New(env, MethodStopPlayback));
+  exports.Set(Napi::String::New(env, "pause"), Napi::Function::New(env, MethodPause));
+  exports.Set(Napi::String::New(env, "resume"), Napi::Function::New(env, MethodResume));
+  exports.Set(Napi::String::New(env, "seek"), Napi::Function::New(env, MethodSeek));
+  exports.Set(Napi::String::New(env, "time"), Napi::Function::New(env, MethodTime));
+  exports.Set(Napi::String::New(env, "duration"), Napi::Function::New(env, MethodDuration));
+  exports.Set(Napi::String::New(env, "open"), Napi::Function::New(env, MethodOpen));
+  exports.Set(Napi::String::New(env, "close"), Napi::Function::New(env, MethodClose));
+  exports.Set(Napi::String::New(env, "startCameras"), Napi::Function::New(env, MethodStartCameras));
+  exports.Set(Napi::String::New(env, "stopCameras"), Napi::Function::New(env, MethodStopCameras));
   #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
-  exports.Set(Napi::String::New(env, "createTracker"),
-    Napi::Function::New(env, MethodCreateTracker));
-  exports.Set(Napi::String::New(env, "destroyTracker"),
-    Napi::Function::New(env, MethodDestroyTracker));
+  exports.Set(Napi::String::New(env, "createTracker"), Napi::Function::New(env, MethodCreateTracker));
+  exports.Set(Napi::String::New(env, "destroyTracker"), Napi::Function::New(env, MethodDestroyTracker));
   #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
-  exports.Set(Napi::String::New(env, "startListening"),
-    Napi::Function::New(env, MethodStartListening));
-  exports.Set(Napi::String::New(env, "stopListening"),
-    Napi::Function::New(env, MethodStopListening));
+  exports.Set(Napi::String::New(env, "setColorControl"), Napi::Function::New(env, MethodSetColorControl));
+  exports.Set(Napi::String::New(env, "startListening"), Napi::Function::New(env, MethodStartListening));
+  exports.Set(Napi::String::New(env, "stopListening"), Napi::Function::New(env, MethodStopListening));
   return exports;
 }
 

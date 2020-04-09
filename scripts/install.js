@@ -1,10 +1,12 @@
 const fs = require('fs-extra');
 const path = require('path');
+const os = require('os');
 const download = require('download');
 const extract = require('extract-zip');
 const settings = require('../lib/settings.js')();
+const exec = require('child_process').exec;
 
-const init = async () => {
+const init = async (callback) => {
   await fs.ensureDir(settings.TARGET_SDK_DIR);
   if (!(await fs.pathExists(settings.TARGET_KINECT_SENSOR_SDK_ZIP))) {
     console.log('downloading sensor sdk');
@@ -63,5 +65,3 @@ const extractFile = (zipPath, dir) => {
     });
   });
 };
-
-init();
