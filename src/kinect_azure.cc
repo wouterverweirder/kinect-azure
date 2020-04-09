@@ -500,6 +500,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
               for (size_t j = 0; j < K4ABT_JOINT_COUNT; j++) {
                 Napi::Object joint = Napi::Object::New(env);
                 
+                joint.Set(Napi::String::New(env, "index"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].index));
+
                 joint.Set(Napi::String::New(env, "cameraX"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraX));
                 joint.Set(Napi::String::New(env, "cameraY"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraY));
                 joint.Set(Napi::String::New(env, "cameraZ"), Napi::Number::New(env, jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraZ));
@@ -801,6 +803,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             for (size_t j = 0; j < K4ABT_JOINT_COUNT; j++)
             {
               k4abt_joint_t joint = skeleton.joints[j];
+              jsFrame.bodyFrame.bodies[i].skeleton.joints[j].index = j;
+
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraX = joint.position.xyz.x;
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraY = joint.position.xyz.y;
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].cameraZ = joint.position.xyz.z;

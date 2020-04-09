@@ -65,3 +65,5 @@ const extractFile = (zipPath, dir) => {
     });
   });
 };
+
+init();

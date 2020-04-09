@@ -4,6 +4,8 @@
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 typedef struct _JSJoint
 {
+	int index = 0;
+	
 	float cameraX = 0;
 	float cameraY = 0;
 	float cameraZ = 0;

@@ -64,11 +64,16 @@
               if (data.bodyFrame.bodies) {
                 // render the skeleton joints on top of the color feed
                 outputCtx.save();
-                outputCtx.fillStyle = 'red';
                 data.bodyFrame.bodies.forEach(body => {
+                  outputCtx.fillStyle = 'red';
                   body.skeleton.joints.forEach(joint => {
                     outputCtx.fillRect(joint.colorX, joint.colorY, 10, 10);
                   });
+                  // draw the pelvis as a green square
+                  const pelvis = body.skeleton.joints[KinectAzure.K4ABT_JOINT_PELVIS];
+                  console.log(pelvis.index);
+                  outputCtx.fillStyle = 'green';
+                  outputCtx.fillRect(pelvis.colorX, pelvis.colorY, 10, 10);
                 });
                 outputCtx.restore();
               }
