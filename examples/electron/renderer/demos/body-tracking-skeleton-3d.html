@@ -47,6 +47,7 @@
 
         const geometry = new THREE.BoxGeometry( .5, .5, .5 );
         const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+        const greenMaterial = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
         // create a bunch of cubes, which we'll use to render the joint positions
         const jointCubes = [];
         const numJointCubes = 10 * KinectAzure.K4ABT_JOINT_COUNT;
@@ -88,6 +89,11 @@
               // the y-axis is inverted in kinect space
               // https://docs.microsoft.com/en-us/azure/kinect-dk/coordinate-systems#3d-coordinate-systems
               cube.position.set(joint.cameraX / 120, -1 * joint.cameraY / 120, joint.cameraZ / 120);
+              if (joint.index === KinectAzure.K4ABT_JOINT_PELVIS) {
+                cube.material = greenMaterial;
+              } else {
+                cube.material = material;
+              }
               cube.visible = true;
             });
           });

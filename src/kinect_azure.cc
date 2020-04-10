@@ -89,6 +89,25 @@ inline int map (float value, int inputMin, int inputMax, int outputMin, int outp
   return (value - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
 }
 
+// Transform skeleton results from 3d depth space to 2d image space
+inline bool transform_joint_from_depth_3d_to_2d(
+    const k4a_calibration_t* calibration, 
+    k4a_float3_t joint_in_depth_space, 
+    k4a_float2_t& joint_in_color_2d,
+    k4a_calibration_type_t target_space)
+{
+  int valid;
+  k4a_calibration_3d_to_2d(
+      calibration, 
+      &joint_in_depth_space, 
+      K4A_CALIBRATION_TYPE_DEPTH, 
+      target_space, 
+      &joint_in_color_2d, 
+      &valid);
+
+  return valid != 0;
+}
+
 Napi::Value MethodInit(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   return Napi::Boolean::New(env, true);
@@ -800,7 +819,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             k4abt_skeleton_t skeleton;
             k4abt_frame_get_body_skeleton(body_frame, i, &skeleton);
 
-            for (size_t j = 0; j < K4ABT_JOINT_COUNT; j++)
+            for (int j = 0; j < K4ABT_JOINT_COUNT; j++)
             {
               k4abt_joint_t joint = skeleton.joints[j];
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].index = j;
@@ -815,19 +834,31 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].orientationW = joint.orientation.wxyz.w;
 
               k4a_float2_t point2d;
-              int valid;
+              bool valid;
+              valid = transform_joint_from_depth_3d_to_2d(
+                            &g_calibration, 
+                            skeleton.joints[j].position,
+                            point2d,
+                            K4A_CALIBRATION_TYPE_DEPTH);
 
-              k4a_calibration_3d_to_2d(&g_calibration, &joint.position, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_COLOR, &point2d, &valid);
-              if (valid)
-              {
-                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorX = point2d.xy.x;
-                jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorY = point2d.xy.y;
-              }
-              k4a_calibration_3d_to_2d(&g_calibration, &joint.position, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &point2d, &valid);
               if (valid)
               {
                 jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthX = point2d.xy.x;
                 jsFrame.bodyFrame.bodies[i].skeleton.joints[j].depthY = point2d.xy.y;
+              }
+
+              if (g_deviceConfig.color_resolution != K4A_COLOR_RESOLUTION_OFF) {
+                valid = transform_joint_from_depth_3d_to_2d(
+                            &g_calibration, 
+                            skeleton.joints[j].position,
+                            point2d,
+                            K4A_CALIBRATION_TYPE_COLOR);
+
+                if (valid)
+                {
+                  jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorX = point2d.xy.x;
+                  jsFrame.bodyFrame.bodies[i].skeleton.joints[j].colorY = point2d.xy.y;
+                }
               }
 
               jsFrame.bodyFrame.bodies[i].skeleton.joints[j].confidence = joint.confidence_level;
