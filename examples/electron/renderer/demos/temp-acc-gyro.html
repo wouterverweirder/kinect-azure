@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Kinect Azure Example</title>
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/bootstrap.css">
+    <link rel="stylesheet" href="../assets/vendors/bootstrap-4.3.1-dist/css/docs.min.css">
+  </head>
+  <body class="container-fluid py-3">
+    <div class="d-flex align-items-baseline justify-content-between">
+      <h1 class="bd-title">Temperature / Accelerometer / Gyroscope</h1>
+      <button onclick="require('electron').remote.getCurrentWebContents().openDevTools()">open dev tools</button>
+    </div>
+    <p>
+      This demo logs the temperature, accelerometer and gyroscope data (Inertial Motion Units data).
+    </p>
+    <div>
+      <table class="table table-striped">
+        <tr>
+          <th scope="row" style="width: 10rem;">Temperature</th>
+          <td id="cellTemperature"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">accX</th>
+          <td id="cellAccelerometerX"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">accY</th>
+          <td id="cellAccelerometerY"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">accZ</th>
+          <td id="cellAccelerometerZ"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">accTimestamp</th>
+          <td id="cellAccelerometerTime"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">gyroX</th>
+          <td id="cellGyroscopeX"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">gyroY</th>
+          <td id="cellGyroscopeY"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">gyroZ</th>
+          <td id="cellGyroscopeZ"></td>
+        </tr>
+        <tr>
+          <th scope="row" style="width: 10rem;">gyroTimestamp</th>
+          <td id="cellGyroscopeTime"></td>
+        </tr>
+      </table>
+    </div>
+    <script>
+      {
+        const KinectAzure = require('kinect-azure');
+        const kinect = new KinectAzure();
+
+        const $cellTemperature = document.getElementById('cellTemperature');
+        const $cellAccelerometerX = document.getElementById('cellAccelerometerX');
+        const $cellAccelerometerY = document.getElementById('cellAccelerometerY');
+        const $cellAccelerometerZ = document.getElementById('cellAccelerometerZ');
+        const $cellAccelerometerTime = document.getElementById('cellAccelerometerTime');
+        const $cellGyroscopeX = document.getElementById('cellGyroscopeX');
+        const $cellGyroscopeY = document.getElementById('cellGyroscopeY');
+        const $cellGyroscopeZ = document.getElementById('cellGyroscopeZ');
+        const $cellGyroscopeTime = document.getElementById('cellGyroscopeTime');
+
+        const init = () => {
+          startKinect();
+        };
+
+        const startKinect = () => {
+          if(kinect.open()) {
+
+            // you need to start at least one camera to capture imu data
+            kinect.startCameras({
+              depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+              include_imu_sample: true
+            });
+
+            kinect.startListening((data) => {
+              $cellTemperature.textContent = data.imu.temperature;
+
+              $cellAccelerometerX.textContent = data.imu.accX;
+              $cellAccelerometerY.textContent = data.imu.accY;
+              $cellAccelerometerZ.textContent = data.imu.accZ;
+              $cellAccelerometerTime.textContent = data.imu.accTimestamp;
+
+              $cellGyroscopeX.textContent = data.imu.gyroX;
+              $cellGyroscopeY.textContent = data.imu.gyroY;
+              $cellGyroscopeZ.textContent = data.imu.gyroZ;
+              $cellGyroscopeTime.textContent = data.imu.gyroTimestamp;
+            });
+          }
+        };
+
+        // expose the kinect instance to the window object in this demo app to allow the parent window to close it between sessions
+        window.kinect = kinect;
+        init();
+      }
+    </script>
+  </body>
+</html>

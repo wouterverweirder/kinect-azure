@@ -15,6 +15,7 @@ Features:
 - point cloud (greyscale and colored)
 - get skeleton joints (2d and 3d)
 - body index / user masking
+- get temperature / accelerometer / gyroscope data (IMU data)
 
 ## Installation
 

@@ -69,6 +69,7 @@ inline int convertToNumber(const char* key, Napi::Object js_config, int currentV
 
 void copyCustomConfig(Napi::Object js_config){
   g_customDeviceConfig.reset();
+  g_customDeviceConfig.include_imu_sample = convertToBool("include_imu_sample", js_config,  g_customDeviceConfig.include_imu_sample);
   g_customDeviceConfig.include_color_to_depth = convertToBool("include_color_to_depth", js_config,  g_customDeviceConfig.include_color_to_depth);
   g_customDeviceConfig.include_body_index_map = convertToBool("include_body_index_map", js_config,  g_customDeviceConfig.include_body_index_map);
   g_customDeviceConfig.flip_BGRA_to_RGBA = convertToBool("flip_BGRA_to_RGBA", js_config,  g_customDeviceConfig.flip_BGRA_to_RGBA);
@@ -322,6 +323,11 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
   
   k4a_device_start_cameras(g_device, &g_deviceConfig);
 
+  if (g_customDeviceConfig.include_imu_sample)
+  {
+    k4a_device_start_imu(g_device);
+  }
+
   k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &g_calibration);
 
   return Napi::Boolean::New(env, true);
@@ -329,6 +335,10 @@ Napi::Value MethodStartCameras(const Napi::CallbackInfo& info) {
 
 Napi::Value MethodStopCameras(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
+  if (g_customDeviceConfig.include_imu_sample)
+  {
+    k4a_device_stop_imu(g_device);
+  }
   k4a_device_stop_cameras(g_device);
   return Napi::Boolean::New(env, true);
 }
@@ -455,6 +465,19 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       JSFrame jsFrame = *jsFrameRef;
 
       Napi::Object data = Napi::Object::New(env);
+      {
+        Napi::Object imu = Napi::Object::New(env);
+        imu.Set(Napi::String::New(env, "temperature"), Napi::Number::New(env, jsFrame.imuSample.temperature));
+        imu.Set(Napi::String::New(env, "accX"), Napi::Number::New(env, jsFrame.imuSample.accX));
+        imu.Set(Napi::String::New(env, "accY"), Napi::Number::New(env, jsFrame.imuSample.accY));
+        imu.Set(Napi::String::New(env, "accZ"), Napi::Number::New(env, jsFrame.imuSample.accZ));
+        imu.Set(Napi::String::New(env, "accTimestamp"), Napi::Number::New(env, jsFrame.imuSample.accTimestamp));
+        imu.Set(Napi::String::New(env, "gyroX"), Napi::Number::New(env, jsFrame.imuSample.gyroX));
+        imu.Set(Napi::String::New(env, "gyroY"), Napi::Number::New(env, jsFrame.imuSample.gyroY));
+        imu.Set(Napi::String::New(env, "gyroZ"), Napi::Number::New(env, jsFrame.imuSample.gyroZ));
+        imu.Set(Napi::String::New(env, "gyroTimestamp"), Napi::Number::New(env, jsFrame.imuSample.gyroTimestamp));
+        data.Set(Napi::String::New(env, "imu"), imu);
+      }
       {
         Napi::Object colorImageFrame = Napi::Object::New(env);
         Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.colorImageFrame.image_data, jsFrame.colorImageFrame.image_length);
@@ -615,11 +638,27 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       mtx.lock();
       // printf("[kinect_azure.cc] jsFrame.reset\n");
       jsFrame.reset();
+      k4a_imu_sample_t imu_sample;
       k4a_image_t color_image = NULL;
       k4a_image_t depth_image = NULL;
       k4a_image_t ir_image = NULL;
       k4a_image_t depth_to_color_image = NULL;
       k4a_image_t color_to_depth_image = NULL;
+      if (g_customDeviceConfig.include_imu_sample)
+      {
+        while (k4a_device_get_imu_sample(g_device, &imu_sample, 0) == K4A_WAIT_RESULT_SUCCEEDED)
+        {
+          jsFrame.imuSample.temperature = imu_sample.temperature;
+          jsFrame.imuSample.accX = imu_sample.acc_sample.xyz.x;
+          jsFrame.imuSample.accY = imu_sample.acc_sample.xyz.y;
+          jsFrame.imuSample.accZ = imu_sample.acc_sample.xyz.z;
+          jsFrame.imuSample.accTimestamp = imu_sample.acc_timestamp_usec;
+          jsFrame.imuSample.gyroX = imu_sample.gyro_sample.xyz.x;
+          jsFrame.imuSample.gyroY = imu_sample.gyro_sample.xyz.y;
+          jsFrame.imuSample.gyroZ = imu_sample.gyro_sample.xyz.z;
+          jsFrame.imuSample.gyroTimestamp = imu_sample.gyro_timestamp_usec;
+        }
+      }
       if (g_deviceConfig.depth_mode != K4A_DEPTH_MODE_OFF)
       {
         // printf("[kinect_azure.cc] k4a_capture_get_depth_image\n");

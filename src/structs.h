@@ -72,8 +72,33 @@ typedef struct _JSBodyFrame
 } JSBodyFrame;
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
 
+typedef struct _JSIMUSample
+{
+	float temperature = 0.0;
+	float accX = 0.0;
+	float accY = 0.0;
+	float accZ = 0.0;
+	uint64_t accTimestamp = 0;
+	float gyroX = 0.0;
+	float gyroY = 0.0;
+	float gyroZ = 0.0;
+	uint64_t gyroTimestamp = 0;
+	void reset() {
+		temperature = 0;
+		accX = 0.0;
+		accY = 0.0;
+		accZ = 0.0;
+		accTimestamp = 0;
+		gyroX = 0.0;
+		gyroY = 0.0;
+		gyroZ = 0.0;
+		gyroTimestamp = 0;
+	}
+} JSIMUSample;
+
 typedef struct _JSFrame
 {
+	JSIMUSample imuSample;
 	#ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 	JSBodyFrame bodyFrame;
 	#endif // KINECT_AZURE_ENABLE_BODY_TRACKING
@@ -83,6 +108,7 @@ typedef struct _JSFrame
 	JSImageFrame depthToColorImageFrame;
 	JSImageFrame colorToDepthImageFrame;
 	void reset() {
+		imuSample.reset();
 		colorImageFrame.reset();
 		depthImageFrame.reset();
 		irImageFrame.reset();
@@ -98,6 +124,7 @@ typedef struct _JSFrame
 
 typedef struct _CustomDeviceConfig
 {
+	bool include_imu_sample = false;
 	bool include_depth_to_color = false;
 	bool include_color_to_depth = false;
 	bool include_body_index_map = false;
@@ -109,6 +136,7 @@ typedef struct _CustomDeviceConfig
 	int max_depth = 3000;
 	
 	void reset() {
+		include_imu_sample = false;
 		include_depth_to_color = false;
 		include_color_to_depth = false;
 		include_body_index_map = false;
