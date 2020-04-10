@@ -1,5 +1,7 @@
 # Azure Kinect Library for Node / Electron
 
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=NUZP3U3QZEQV2&currency_code=EUR&source=url)
+
 This library enables you to use the Azure Kinect in your nodejs or electron apps.
 
 ![screenshot of skeleton 2d demo](examples/screenshots/screenshot-demos-body-tracking-2d.png)
@@ -66,3 +68,9 @@ $ npm start
 ```
 
 The electron examples have the javascript code inside the html files. You can find these html files in [examples/electron/renderer/demos](examples/electron/renderer/demos).
+
+## Donate
+
+Like this library? Always welcome to buy me a beer 🍺
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=NUZP3U3QZEQV2&currency_code=EUR&source=url)
