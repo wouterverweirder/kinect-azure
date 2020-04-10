@@ -1,6 +1,25 @@
 #ifndef kinect_azure_structs_h
 #define kinect_azure_structs_h
 
+typedef struct _JSImageFrame
+{
+	uint8_t* image_data = NULL;
+	size_t image_length = 0;
+	int stride_bytes = 0;
+	int width = 0;
+	int height = 0;
+	void reset() {
+		if (image_data != NULL) {
+			delete [] image_data;
+			image_data = NULL;
+		}
+		image_length = 0;
+		stride_bytes = 0;
+		width = 0;
+		height = 0;
+	}
+} JSImageFrame;
+
 #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
 typedef struct _JSJoint
 {
@@ -37,9 +56,13 @@ typedef struct _JSBody
 
 typedef struct _JSBodyFrame
 {
+	JSImageFrame bodyIndexMapImageFrame;
+	JSImageFrame bodyIndexMapToColorImageFrame;
 	JSBody* bodies = NULL;
   int numBodies = 0;
 	void reset() {
+		bodyIndexMapImageFrame.reset();
+		bodyIndexMapToColorImageFrame.reset();
 		if (bodies != NULL) {
 			delete [] bodies;
 			bodies = NULL;
@@ -48,25 +71,6 @@ typedef struct _JSBodyFrame
 	}
 } JSBodyFrame;
 #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
-
-typedef struct _JSImageFrame
-{
-	uint8_t* image_data = NULL;
-	size_t image_length = 0;
-	int stride_bytes = 0;
-	int width = 0;
-	int height = 0;
-	void reset() {
-		if (image_data != NULL) {
-			delete [] image_data;
-			image_data = NULL;
-		}
-		image_length = 0;
-		stride_bytes = 0;
-		width = 0;
-		height = 0;
-	}
-} JSImageFrame;
 
 typedef struct _JSFrame
 {
@@ -96,6 +100,7 @@ typedef struct _CustomDeviceConfig
 {
 	bool include_depth_to_color = false;
 	bool include_color_to_depth = false;
+	bool include_body_index_map = false;
 	bool flip_BGRA_to_RGBA = false;
 	bool apply_depth_to_alpha = false;
 	bool depth_to_greyscale = false;
@@ -106,6 +111,7 @@ typedef struct _CustomDeviceConfig
 	void reset() {
 		include_depth_to_color = false;
 		include_color_to_depth = false;
+		include_body_index_map = false;
 		flip_BGRA_to_RGBA = false;
 		apply_depth_to_alpha = false;
 		depth_to_greyscale = false;

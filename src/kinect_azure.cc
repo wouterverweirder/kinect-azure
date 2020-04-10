@@ -70,6 +70,7 @@ inline int convertToNumber(const char* key, Napi::Object js_config, int currentV
 void copyCustomConfig(Napi::Object js_config){
   g_customDeviceConfig.reset();
   g_customDeviceConfig.include_color_to_depth = convertToBool("include_color_to_depth", js_config,  g_customDeviceConfig.include_color_to_depth);
+  g_customDeviceConfig.include_body_index_map = convertToBool("include_body_index_map", js_config,  g_customDeviceConfig.include_body_index_map);
   g_customDeviceConfig.flip_BGRA_to_RGBA = convertToBool("flip_BGRA_to_RGBA", js_config,  g_customDeviceConfig.flip_BGRA_to_RGBA);
   g_customDeviceConfig.apply_depth_to_alpha = convertToBool("apply_depth_to_alpha", js_config,  g_customDeviceConfig.apply_depth_to_alpha);
   g_customDeviceConfig.depth_to_greyscale = convertToBool("depth_to_greyscale", js_config,  g_customDeviceConfig.depth_to_greyscale);
@@ -508,6 +509,26 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
         Napi::Object bodyFrame = Napi::Object::New(env);
         {
+          {
+            Napi::Object bodyIndexMapImageFrame = Napi::Object::New(env);
+            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length);
+            bodyIndexMapImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
+            bodyIndexMapImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length));
+            bodyIndexMapImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.width));
+            bodyIndexMapImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.height));
+            bodyIndexMapImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.stride_bytes));
+            bodyFrame.Set(Napi::String::New(env, "bodyIndexMapImageFrame"), bodyIndexMapImageFrame);
+          }
+          {
+            Napi::Object bodyIndexMapToColorImageFrame = Napi::Object::New(env);
+            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length);
+            bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
+            bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length));
+            bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.width));
+            bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.height));
+            bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.stride_bytes));
+            bodyFrame.Set(Napi::String::New(env, "bodyIndexMapToColorImageFrame"), bodyIndexMapToColorImageFrame);
+          }
           bodyFrame.Set(Napi::String::New(env, "numBodies"), Napi::Number::New(env, jsFrame.bodyFrame.numBodies));
           Napi::Array bodies = Napi::Array::New(env, jsFrame.bodyFrame.numBodies);
           for (size_t i = 0; i < jsFrame.bodyFrame.numBodies; i++) {
@@ -644,11 +665,18 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       if (g_customDeviceConfig.include_depth_to_color)
       {
         
-        if(k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16, jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height, jsFrame.colorImageFrame.width * 2, &depth_to_color_image) == K4A_RESULT_SUCCEEDED)
+        if(
+          k4a_image_create(
+            K4A_IMAGE_FORMAT_DEPTH16,
+            jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height,
+            jsFrame.colorImageFrame.width * 2,
+            &depth_to_color_image
+          ) == K4A_RESULT_SUCCEEDED )
         {
           jsFrame.depthToColorImageFrame.height = 10;
       
-          if(k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
+          if(
+            k4a_transformation_depth_image_to_color_camera(transformer, depth_image, depth_to_color_image) == K4A_RESULT_SUCCEEDED)
           {
             jsFrame.depthToColorImageFrame.width = 10;
         
@@ -685,19 +713,14 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         }
       }
 
-
       if (depth_image != NULL){
         uint8_t* image_data = k4a_image_get_buffer(depth_image);
         memcpy(jsFrame.depthImageFrame.image_data, image_data, jsFrame.depthImageFrame.image_length);
-        k4a_image_release(depth_image);
-        depth_image = NULL;
       }
 
       if (ir_image != NULL){
         uint8_t* image_data = k4a_image_get_buffer(ir_image);
         memcpy(jsFrame.irImageFrame.image_data, image_data, jsFrame.irImageFrame.image_length);
-        k4a_image_release(ir_image);
-        ir_image = NULL;
       }
 
       if (color_image != NULL){
@@ -732,9 +755,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         } else {
           memcpy(jsFrame.colorImageFrame.image_data, image_data, jsFrame.colorImageFrame.image_length);
         }
-
-        k4a_image_release(color_image);
-        color_image = NULL;
       }
       
       if (depth_to_color_image != NULL)
@@ -776,16 +796,11 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         } else {
           memcpy(jsFrame.depthToColorImageFrame.image_data, image_data, jsFrame.depthToColorImageFrame.image_length);
         }
-        
-        k4a_image_release(depth_to_color_image);
-        depth_to_color_image = NULL;
       }
       if (color_to_depth_image != NULL)
       {
         uint8_t* image_data = k4a_image_get_buffer(color_to_depth_image);
         memcpy(jsFrame.colorToDepthImageFrame.image_data, image_data, jsFrame.colorToDepthImageFrame.image_length);
-        k4a_image_release(color_to_depth_image);
-        color_to_depth_image = NULL;
       }
 
       #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
@@ -809,6 +824,48 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
           size_t num_bodies = k4abt_frame_get_num_bodies(body_frame);
 
           jsFrame.resetBodyFrame();
+
+          // body index map?
+          k4a_image_t body_index_map_image = NULL;
+          k4a_image_t body_index_map_color_image = NULL;
+          if (g_customDeviceConfig.include_body_index_map)
+          {
+            body_index_map_image = k4abt_frame_get_body_index_map(body_frame);
+            if (body_index_map_image != NULL){
+              jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length = k4a_image_get_size(body_index_map_image);
+              jsFrame.bodyFrame.bodyIndexMapImageFrame.width = k4a_image_get_width_pixels(body_index_map_image);
+              jsFrame.bodyFrame.bodyIndexMapImageFrame.height = k4a_image_get_height_pixels(body_index_map_image);
+              jsFrame.bodyFrame.bodyIndexMapImageFrame.stride_bytes = k4a_image_get_stride_bytes(body_index_map_image);
+              jsFrame.bodyFrame.bodyIndexMapImageFrame.image_data = new uint8_t[jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length];
+              uint8_t* image_data = k4a_image_get_buffer(body_index_map_image);
+              memcpy(jsFrame.bodyFrame.bodyIndexMapImageFrame.image_data, image_data, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length);
+            }
+            // transform to color space as well?
+            if (g_customDeviceConfig.include_depth_to_color)
+            {
+              if (
+                k4a_image_create(
+                  K4A_IMAGE_FORMAT_CUSTOM8,
+                  jsFrame.colorImageFrame.width, jsFrame.colorImageFrame.height,
+                  jsFrame.colorImageFrame.width * (int)sizeof(uint8_t),
+                  &body_index_map_color_image
+                ) == K4A_RESULT_SUCCEEDED )
+              {
+                if( k4a_transformation_depth_image_to_color_camera_custom(transformer, depth_image, body_index_map_image, depth_to_color_image, body_index_map_color_image, K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST, K4ABT_BODY_INDEX_MAP_BACKGROUND) == K4A_RESULT_SUCCEEDED )
+                {
+                  jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length = k4a_image_get_size(body_index_map_color_image);
+                  jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.width = k4a_image_get_width_pixels(body_index_map_color_image);
+                  jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.height = k4a_image_get_height_pixels(body_index_map_color_image);
+                  jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.stride_bytes = k4a_image_get_stride_bytes(body_index_map_color_image);
+                  jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_data = new uint8_t[jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length];
+
+                  uint8_t* image_data = k4a_image_get_buffer(body_index_map_color_image);
+                  memcpy(jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_data, image_data, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length);
+                }
+              }
+            }
+          }
+
           jsFrame.bodyFrame.numBodies = num_bodies;
           jsFrame.bodyFrame.bodies = new JSBody[num_bodies];
 
@@ -865,10 +922,52 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
             }
           }
 
-          k4abt_frame_release(body_frame); // Remember to release the body frame once you finish using it
+          if (body_index_map_image != NULL)
+          {
+            k4a_image_release(body_index_map_image);
+            body_index_map_image = NULL;
+          }
+
+          if (body_index_map_color_image != NULL)
+          {
+            k4a_image_release(body_index_map_color_image);
+            body_index_map_color_image = NULL;
+          }
+
+          if (body_index_map_color_image != NULL)
+          {
+            k4a_image_release(body_index_map_color_image);
+            body_index_map_color_image = NULL;
+          }
+
+          k4abt_frame_release(body_frame);
+          body_frame = NULL;
         }
       }
       #endif // KINECT_AZURE_ENABLE_BODY_TRACKING
+
+      // release images
+      if (depth_image != NULL) {
+        k4a_image_release(depth_image);
+        depth_image = NULL;
+      }
+      if (ir_image != NULL) {
+        k4a_image_release(ir_image);
+        ir_image = NULL;
+      }
+      if (color_image != NULL) {
+        k4a_image_release(color_image);
+        color_image = NULL;
+      }
+      if (color_to_depth_image != NULL) {
+        k4a_image_release(color_to_depth_image);
+        color_to_depth_image = NULL;
+      }
+      if (depth_to_color_image != NULL) {
+        k4a_image_release(depth_to_color_image);
+        depth_to_color_image = NULL;
+      }
+
       k4a_capture_release(sensor_capture);
      
       if (!is_listening)
@@ -877,16 +976,11 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
         break;
       }
       // Perform a blocking call
-      // printf("[kinect_azure.cc] Perform a blocking call\n");
       mtx.unlock();
       napi_status status = tsfn.BlockingCall( &jsFrame, callback );
       if ( status != napi_ok )
       {
-        // Handle error
-        // printf("[kinect_azure.cc] BlockingCall Error!\n");
         break;
-      } else {
-        //  printf("[kinect_azure.cc] BlockingCall Done\n");
       }
     }
 
@@ -899,8 +993,6 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
       delete[] processed_depth_data;
       processed_depth_data = NULL;
     }
-
-    
 
     if (transformer != NULL)
     {
