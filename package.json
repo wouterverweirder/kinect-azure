@@ -1,6 +1,6 @@
 {
   "name": "kinect-azure",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "Nodejs library to access the azure kinect data from the official SDK",
   "repository": "https://github.com/wouterverweirder/kinect-azure",
   "main": "lib/kinect-azure.js",
