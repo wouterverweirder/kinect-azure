@@ -126,85 +126,72 @@ Napi::Number MethodGetInstalledCount(const Napi::CallbackInfo &info)
   return Napi::Number::New(env, count);
 }
 
-Napi::Number MethodGetKinectIndex(const Napi::CallbackInfo &info)
-{
-  Napi::Env env = info.Env();
-  uint32_t count = k4a_device_get_installed_count();
-
-  //Get serial number
-  k4a_device_t g_device_serial = NULL;
-  char serialNumber[256];
-  strcpy(serialNumber, info[0].ToString().Utf8Value().c_str());
-
-  //Open up devices -> Check serial numbers -> return index of match
-  int index = -1;
-  for (int i = 0; i < count; i++)
-  {
-    if (K4A_SUCCEEDED(k4a_device_open(i, &g_device_serial)))
-    {
-      char curr_serial_num[256];
-      size_t serial_number_size = sizeof(curr_serial_num);
-      k4a_device_get_serialnum(g_device_serial, curr_serial_num, &serial_number_size);
-      //Check if serial numbers match
-      if (std::strcmp(serialNumber, curr_serial_num) == 0)
-      {
-        index = i;
-        break;
-      }
-    }
-  }
-
-  if (index == -1)
-  {
-    //No matches for specified serial number
-    Napi::TypeError::New(env, "ERROR: No matching devices found")
-        .ThrowAsJavaScriptException();
-    return Napi::Number::New(env, index); //returns a -1
-    ;
-  }
-
-  return Napi::Number::New(env, index);
-}
-
 Napi::String MethodGetSerialNumber(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
-  //Index number should be one and only argument passed in
-  if (info.Length() != 1)
-  {
-    Napi::TypeError::New(env, "Incorrect number of arguments")
-        .ThrowAsJavaScriptException();
-    return Napi::String::New(env, "Error");
-  }
-
-  int index = info[0].ToNumber().Int32Value();
-  if (index >= k4a_device_get_installed_count())
-  {
-    Napi::TypeError::New(env, "Index passed is higher than amount of Kinect devices currently connected")
-        .ThrowAsJavaScriptException();
-    return Napi::String::New(env, "Error");
-  }
-
-  //Open Kinect -> Get serial number -> Close Kinect -> return serial number
-  // ! TODO: Error check: Is Kinect open?
-  k4a_device_t g_device_serial = NULL;
+  //Get Serial number of currently open Kinect
+  //check if Kinect open -> Get serial number -> return serial number
   char serial_number[256];
 
-  if (K4A_SUCCEEDED(k4a_device_open(index, &g_device_serial)))
+  if (g_device != nullptr)
   {
-    /* printf("Device opened at index: %i\n", index); */
     size_t serial_number_size = sizeof(serial_number);
-    k4a_device_get_serialnum(g_device_serial, serial_number, &serial_number_size);
+    k4a_device_get_serialnum(g_device, serial_number, &serial_number_size);
     /* printf("Serial Number: %s\n", serial_number); */
-
-    k4a_device_close(g_device_serial);
+  }
+  else
+  {
+    //Kinect g_device is not open
+    //Return null empty char array
+    /* printf("Device is NOT open. Can not return serial number"); */
+    serial_number[0] = '\0';
   }
 
   return Napi::String::New(env, serial_number);
 }
 
 Napi::Value MethodOpen(const Napi::CallbackInfo &info)
+{
+  Napi::Env env = info.Env();
+
+  // If index specified, look for specific Kinect.
+  if (info.Length() == 1)
+  {
+
+    //Error check for invalid index
+    int index = info[0].ToNumber().Int32Value();
+    if (index >= k4a_device_get_installed_count())
+    {
+      Napi::TypeError::New(env, "Index passed is higher than amount of Kinect devices currently connected")
+          .ThrowAsJavaScriptException();
+      return Napi::String::New(env, "Error");
+    }
+
+    if (K4A_SUCCEEDED(k4a_device_open(index, &g_device)))
+    {
+      //Device opened
+      /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u success\n", index); */
+    }
+    else
+    {
+      /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u failed\n", index); */
+    }
+  }
+  else
+  {
+    // No device exists or no index number specified, open default Kinect.
+    /* printf("[kinect_azure.cc] MethodOpen - Opening default device\n"); */
+    k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
+  }
+
+  bool returnValue = (g_device == nullptr) ? false : true;
+  is_open = returnValue;
+  /* printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue); */
+  return Napi::Boolean::New(env, returnValue);
+}
+
+Napi::Value MethodSerialOpen(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
@@ -1309,7 +1296,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
   exports.Set(Napi::String::New(env, "init"), Napi::Function::New(env, MethodInit));
   exports.Set(Napi::String::New(env, "getInstalledCount"), Napi::Function::New(env, MethodGetInstalledCount));
   exports.Set(Napi::String::New(env, "getSerialNumber"), Napi::Function::New(env, MethodGetSerialNumber));
-  exports.Set(Napi::String::New(env, "getKinectIndex"), Napi::Function::New(env, MethodGetKinectIndex));
   exports.Set(Napi::String::New(env, "openPlayback"), Napi::Function::New(env, MethodOpenPlayback));
   exports.Set(Napi::String::New(env, "startPlayback"), Napi::Function::New(env, MethodStartPlayback));
   exports.Set(Napi::String::New(env, "stopPlayback"), Napi::Function::New(env, MethodStopPlayback));
@@ -1319,6 +1305,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
   exports.Set(Napi::String::New(env, "time"), Napi::Function::New(env, MethodTime));
   exports.Set(Napi::String::New(env, "duration"), Napi::Function::New(env, MethodDuration));
   exports.Set(Napi::String::New(env, "open"), Napi::Function::New(env, MethodOpen));
+  exports.Set(Napi::String::New(env, "serialOpen"), Napi::Function::New(env, MethodSerialOpen));
   exports.Set(Napi::String::New(env, "close"), Napi::Function::New(env, MethodClose));
   exports.Set(Napi::String::New(env, "startCameras"), Napi::Function::New(env, MethodStartCameras));
   exports.Set(Napi::String::New(env, "stopCameras"), Napi::Function::New(env, MethodStopCameras));
