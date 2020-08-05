@@ -193,10 +193,10 @@ Napi::String MethodGetSerialNumber(const Napi::CallbackInfo &info)
 
   if (K4A_SUCCEEDED(k4a_device_open(index, &g_device_serial)))
   {
-    printf("Device opened at index: %i\n", index);
+    /* printf("Device opened at index: %i\n", index); */
     size_t serial_number_size = sizeof(serial_number);
     k4a_device_get_serialnum(g_device_serial, serial_number, &serial_number_size);
-    printf("Serial Number: %s\n", serial_number);
+    /* printf("Serial Number: %s\n", serial_number); */
 
     k4a_device_close(g_device_serial);
   }
@@ -214,19 +214,19 @@ Napi::Value MethodOpen(const Napi::CallbackInfo &info)
     //Get serial number
     char serialNumber[256];
     strcpy(serialNumber, info[0].ToString().Utf8Value().c_str());
-    printf("[kinect_azure.cc] MethodOpen - serial number: %s\n", info[0].ToString().Utf8Value().c_str());
-    printf("[kinect_azure.cc] MethodOpen - copied serial number: %s\n", serialNumber);
+    /* printf("[kinect_azure.cc] MethodOpen - serial number: %s\n", info[0].ToString().Utf8Value().c_str()); */
+    /* printf("[kinect_azure.cc] MethodOpen - copied serial number: %s\n", serialNumber); */
 
     uint32_t count = k4a_device_get_installed_count();
-    printf("[kinect_azure.cc] MethodOpen - # of Kinects: %u\n", count);
+    /* printf("[kinect_azure.cc] MethodOpen - # of Kinects: %u\n", count); */
     for (uint8_t i = 0; i < count; i++)
     {
-      printf("[kinect_azure.cc] MethodOpen - Value of i: %u\n", i);
+      /* printf("[kinect_azure.cc] MethodOpen - Value of i: %u\n", i); */
 
       if (K4A_SUCCEEDED(k4a_device_open(i, &g_device)))
       {
         //Device opened, check serial number
-        printf("[kinect_azure.cc] MethodOpen - Opening device at index %u success\n", i);
+        /*printf("[kinect_azure.cc] MethodOpen - Opening device at index %u success\n", i); */
         //Check for matching serial number
         char serial_number[256];
         size_t serial_number_size = sizeof(serial_number);
@@ -234,33 +234,33 @@ Napi::Value MethodOpen(const Napi::CallbackInfo &info)
         if (strcmp(serial_number, serialNumber) == 0)
         {
           //Match!
-          printf("[kinect_azure.cc] MethodOpen - Match Found!\n");
+          /* printf("[kinect_azure.cc] MethodOpen - Match Found!\n"); */
           break; //device already opened; nothing more to do.
         }
         else
         {
           //Not a match; close device for next check
-          printf("[kinect_azure.cc] MethodOpen - Not a match!\n");
+          /* printf("[kinect_azure.cc] MethodOpen - Not a match!\n"); */
           k4a_device_close(g_device);
           g_device = nullptr;
         }
       }
       else
       {
-        printf("[kinect_azure.cc] MethodOpen - Opening device at index %u failed\n", i);
+        /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u failed\n", i); */
       }
     }
   }
   else
   {
     // No device exists or no serial number specified, open default Kinect.
-    printf("[kinect_azure.cc] MethodOpen - Opening default device\n");
+    /* printf("[kinect_azure.cc] MethodOpen - Opening default device\n"); */
     k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
   }
 
   bool returnValue = (g_device == nullptr) ? false : true;
   is_open = returnValue;
-  printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue);
+  /* printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue); */
   return Napi::Boolean::New(env, returnValue);
 }
 
