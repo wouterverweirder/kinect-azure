@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "main": "skeleton-logging.js",
   "scripts": {
-    "start": "node .",
-    "postinstall": "node ./node_modules/kinect-azure/scripts/install.js"
+    "start": "node ."
   },
   "author": "Wouter Verweirder",
   "license": "MIT",

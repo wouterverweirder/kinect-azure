@@ -1,28 +1,35 @@
 {
   "name": "kinect-azure",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Nodejs library to access the azure kinect data from the official SDK",
   "repository": "https://github.com/wouterverweirder/kinect-azure",
   "main": "lib/kinect-azure.js",
   "dependencies": {
+    "@mapbox/node-pre-gyp": "^1.0.1",
     "bindings": "~1.2.1",
-    "download": "^7.1.0",
-    "extract-zip": "^1.7.0",
-    "fs-extra": "^8.1.0",
     "node-addon-api": "^1.0.0"
   },
   "engines": {
-    "node": ">= 10.6.0"
+    "node": ">= 10.16.0"
   },
   "scripts": {
-    "install": "node ./scripts/install.js && node-gyp rebuild",
-    "clean": "node ./scripts/clean.js",
-    "build": "npm i && cd ./examples/electron && npm start",
+    "install": "node-pre-gyp install --fallback-to-build",
+    "build": "npm install --build-from-source",
+    "package": "node-pre-gyp package",
     "start": "cd ./examples/electron && npm start",
-    "reinstall": "npm run clean && npm run install",
     "prepublishOnly": "rimraf ./examples/**/node_modules"
   },
   "gypfile": true,
+  "binary": {
+    "module_name": "kinectAzure",
+    "module_path": "./lib/binding/napi-v{napi_build_version}",
+    "remote_path": "{version}",
+    "package_name": "{platform}-{arch}-napi-v{napi_build_version}.tar.gz",
+    "host": "https://github.com/wouterverweirder/kinect-azure/releases/download/",
+    "napi_versions": [
+      4
+    ]
+  },
   "devDependencies": {
     "rimraf": "^3.0.0"
   }

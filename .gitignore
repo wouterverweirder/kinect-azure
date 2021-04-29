@@ -2,9 +2,8 @@ Thumbs.db
 build/
 .node_pre_gyprc
 .vscode/
-
-# Ignore the downloaded SDK
-/sdk
+build-tmp*/
+lib/binding/
 
 # Ignore the dll files in the root of this module and the examples folders and script folders
 /*.dll
