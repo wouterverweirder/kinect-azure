@@ -31,18 +31,6 @@ $ npm install kinect-azure
 
 There are no precompiled binaries yet, so you need to have [node-gyp installed on your system](https://github.com/nodejs/node-gyp).
 
-### Potential issues
-
-You might run into the error below when trying to install this module:
-
-> Error: spawn C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\15.0\Bin\MSBuild.exe ENOENT
-
-To fix this, make sure to install the latest version of node-gyp globally:
-
-```
-$ npm install -g node-gyp
-```
-
 ## Examples
 
 There are nodejs and electron examples in the examples/ folder of this repo. To run them, execute npm install and npm start:
