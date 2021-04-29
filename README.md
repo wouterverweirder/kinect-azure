@@ -19,7 +19,9 @@ Features:
 
 ## Installation
 
-Make sure you have the Azure Kinect drivers installed.
+Make sure you have the Azure Kinect drivers and the [Azure Kinect Body SDK](https://docs.microsoft.com/en-us/azure/kinect-dk/body-sdk-download) installed.
+
+The Body Tracking SDK relies on quite a few dll & onnx files, which you can find in the `Azure Kinect Body SDK\tools` directory. Either add that folder (eg C:\Program Files\Azure Kinect Body Tracking SDK\tools) to your PATH or copy the dll and onnx files into the root of your project.
 
 Just npm install like you would do with any regular module. 
 
@@ -40,23 +42,6 @@ To fix this, make sure to install the latest version of node-gyp globally:
 ```
 $ npm install -g node-gyp
 ```
-
-### Body tracking
-
-If you want to use body tracking, you will need to have a couple of dll files in the root of your application. Otherwise, you'll run into errors like the one below:
-
-> Cannot locate onnxruntime.dll
-
-The install script of this module tries copy these files automatically. You should have the following files in your application root after running npm install:
-
-- onnxruntime.dll
-- dnn_model_2_0.onnx
-- cublas64_100.dll
-- cudart64_100.dll
-- vcomp140.dll
-- cudnn64_7.dll
-
-If you can't find these files, copy them from inside node_modules/kinect-azure to your project root.
 
 ## Examples
 

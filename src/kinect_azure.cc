@@ -367,6 +367,11 @@ Napi::Value MethodCreateTracker(const Napi::CallbackInfo& info) {
       {
         tracker_config.gpu_device_id = (int32_t) js_gpu_device_id.As<Napi::Number>().Int32Value();
       }
+      Napi::Value js_model_path = js_config.Get("model_path");
+      if (js_model_path.IsString())
+      {
+        tracker_config.model_path = js_model_path.As<Napi::String>().Utf8Value().c_str();
+      }
   }
   
   k4abt_tracker_create(&sensor_calibration, tracker_config, &g_tracker);

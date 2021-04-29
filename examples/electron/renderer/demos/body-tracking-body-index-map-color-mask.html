@@ -53,7 +53,9 @@
               include_body_index_map: true,
             });
             depthModeRange = kinect.getDepthModeRange(KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED);
-            kinect.createTracker();
+            kinect.createTracker({
+              processing_mode: KinectAzure.K4ABT_TRACKER_PROCESSING_MODE_GPU_CUDA
+            });
 
             kinect.startListening((data) => {
               statsKinect.update();

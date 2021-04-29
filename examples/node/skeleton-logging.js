@@ -7,7 +7,9 @@ if(kinect.open()) {
     depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
     color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P
   });
-  kinect.createTracker();
+  kinect.createTracker({
+    processing_mode: KinectAzure.K4ABT_TRACKER_PROCESSING_MODE_GPU_CUDA
+  });
   kinect.startListening((data) => {
     if (data.bodyFrame.numBodies === 0) {
       return;
