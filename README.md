@@ -17,6 +17,8 @@ Features:
 - body index / user masking
 - get temperature / accelerometer / gyroscope data (IMU data)
 
+Check out [my kinect2 library](https://github.com/wouterverweirder/kinect2) for the Kinect v2 sensor.
+
 ## Installation
 
 Make sure you have the Azure Kinect drivers and the [Azure Kinect Body SDK](https://docs.microsoft.com/en-us/azure/kinect-dk/body-sdk-download) installed.
