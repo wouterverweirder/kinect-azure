@@ -8,6 +8,8 @@ typedef struct _JSImageFrame
 	int stride_bytes = 0;
 	int width = 0;
 	int height = 0;
+	uint64_t device_timestamp = NULL;
+	uint64_t system_timestamp = NULL;
 	void reset() {
 		if (image_data != NULL) {
 			delete [] image_data;
@@ -17,6 +19,8 @@ typedef struct _JSImageFrame
 		stride_bytes = 0;
 		width = 0;
 		height = 0;
+		device_timestamp = NULL;
+		system_timestamp = NULL;
 	}
 } JSImageFrame;
 
