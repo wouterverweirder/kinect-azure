@@ -28,7 +28,10 @@
           ]
         }
       ],
-      'defines': [ 'NAPI_DISABLE_CPP_EXCEPTIONS' ],
+      'defines': [
+        'NAPI_DISABLE_CPP_EXCEPTIONS',
+        'NAPI_VERSION=<(napi_build_version)'
+      ]
     },
     {
       "target_name": "action_after_build",

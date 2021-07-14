@@ -12,9 +12,9 @@
     "node": ">= 10.16.0"
   },
   "scripts": {
-    "install": "prebuild-install || prebuild -t 4 -r napi || node-gyp rebuild",
-    "prebuild": "prebuild -t 4 -r napi",
-    "package": "prebuild -t 4 -r napi -u",
+    "install": "prebuild-install || prebuild -t 4 --runtime napi || node-gyp rebuild",
+    "prebuild": "prebuild -t 4 --runtime napi",
+    "package": "prebuild -t 4 --runtime napi -u",
     "start": "cd ./examples/electron && npm start",
     "prepublishOnly": "rimraf ./examples/**/node_modules",
     "copy-dlls": "xcopy \"C:\\Program Files\\Azure Kinect Body Tracking SDK\\tools\\\" . /H /C /Y"
