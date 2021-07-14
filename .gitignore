@@ -1,17 +1,19 @@
 Thumbs.db
-build/
+/prebuilds
+/build
+.prebuildrc
 .node_pre_gyprc
 .vscode/
-build-tmp*/
-lib/binding/
+/build-tmp*
+/lib/binding/
 
 # Ignore the dll files in the root of this module and the examples folders and script folders
 /*.dll
 /*.onnx
+/*.exe
 /examples/**/*.dll
 /examples/**/*.onnx
-/scripts/*.dll
-/scripts/*.onnx
+/examples/**/*.exe
 
 # Logs
 logs
