@@ -1,6 +1,6 @@
 {
   "name": "kinect-azure",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Nodejs library to access the azure kinect data from the official SDK",
   "repository": "https://github.com/wouterverweirder/kinect-azure",
   "main": "lib/kinect-azure.js",
@@ -12,7 +12,7 @@
     "node": ">= 10.16.0"
   },
   "scripts": {
-    "install": "prebuild-install || prebuild -t 4 --runtime napi || node-gyp rebuild",
+    "install": "prebuild-install -t 4 --runtime napi || prebuild -t 4 --runtime napi || node-gyp rebuild",
     "prebuild": "prebuild -t 4 --runtime napi",
     "package": "prebuild -t 4 --runtime napi -u",
     "start": "cd ./examples/electron && npm start",
