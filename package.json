@@ -1,6 +1,6 @@
 {
   "name": "kinect-azure",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Nodejs library to access the azure kinect data from the official SDK",
   "repository": "https://github.com/wouterverweirder/kinect-azure",
   "main": "lib/kinect-azure.js",
@@ -13,6 +13,7 @@
   },
   "scripts": {
     "install": "prebuild-install -t 4 --runtime napi || prebuild -t 4 --runtime napi || node-gyp rebuild",
+    "prebuild-install": "prebuild-install -t 4 --runtime napi --verbose",
     "prebuild": "prebuild -t 4 --runtime napi",
     "package": "prebuild -t 4 --runtime napi -u",
     "start": "cd ./examples/electron && npm start",
@@ -23,8 +24,8 @@
   "binary": {
     "module_name": "kinectAzure",
     "module_path": "./lib/binding/napi-v4",
-    "remote_path": "{version}",
-    "package_name": "{platform}-{arch}-napi-v4.tar.gz",
+    "remote_path": "v{version}",
+    "package_name": "kinect-azure-v{version}-napi-v4-{platform}-{arch}.tar.gz",
     "host": "https://github.com/wouterverweirder/kinect-azure/releases/download/",
     "napi_versions": [
       4
