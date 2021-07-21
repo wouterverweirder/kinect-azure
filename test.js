@@ -12,8 +12,8 @@ if(kinect.open()) {
       return;
     }
     console.log('we received a frame');
-    console.log(`color: ${data.colorImageFrame.width}x${data.colorImageFrame.height}`);
-    console.log(`depth: ${data.depthImageFrame.width}x${data.depthImageFrame.height}`);
+    console.log(`color: [${data.colorImageFrame.deviceTimestamp}:${data.colorImageFrame.systemTimestamp}] ${data.colorImageFrame.width}x${data.colorImageFrame.height}`);
+    console.log(`depth: [${data.depthImageFrame.deviceTimestamp}:${data.depthImageFrame.systemTimestamp}] ${data.depthImageFrame.width}x${data.depthImageFrame.height}`);
     console.log('stop listening');
     kinect.stopListening().then(() => {
       console.log("stopped listening");
