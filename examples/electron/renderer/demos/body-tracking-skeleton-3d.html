@@ -61,7 +61,9 @@
           kinect.startCameras({
             depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED
           });
-          kinect.createTracker();
+          kinect.createTracker({
+            processing_mode: KinectAzure.K4ABT_TRACKER_PROCESSING_MODE_GPU_CUDA
+          });
           kinect.startListening((data) => {
             // store the bodies in the global bodies variable
             // we are rendering them in the animate render loop

@@ -4,7 +4,7 @@
   "main": "skeleton-logging.js",
   "scripts": {
     "start": "node .",
-    "postinstall": "node ./node_modules/kinect-azure/scripts/install.js"
+    "copy-dlls": "xcopy \"C:\\Program Files\\Azure Kinect Body Tracking SDK\\tools\\\" . /H /C /Y"
   },
   "author": "Wouter Verweirder",
   "license": "MIT",
