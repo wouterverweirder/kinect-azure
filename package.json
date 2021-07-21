@@ -15,6 +15,7 @@
     "install": "prebuild-install -t 4 --runtime napi || prebuild -t 4 --runtime napi || node-gyp rebuild",
     "prebuild-install": "prebuild-install -t 4 --runtime napi --verbose",
     "prebuild": "prebuild -t 4 --runtime napi",
+    "clean": "rimraf ./lib/binding && rimraf ./build && rimraf ./prebuilds",
     "package": "prebuild -t 4 --runtime napi -u",
     "start": "cd ./examples/electron && npm start",
     "prepublishOnly": "rimraf ./examples/**/node_modules",
