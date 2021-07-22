@@ -496,24 +496,28 @@ Napi::Value MethodCreateTracker(const Napi::CallbackInfo &info)
   k4a_device_get_calibration(g_device, g_deviceConfig.depth_mode, g_deviceConfig.color_resolution, &sensor_calibration);
   k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
 
-  if (info.Length() > 0)
-  {
-    Napi::Object js_config = info[0].As<Napi::Object>();
-    Napi::Value js_sensor_orientation = js_config.Get("sensor_orientation");
-    if (js_sensor_orientation.IsNumber())
-    {
-      tracker_config.sensor_orientation = (k4abt_sensor_orientation_t)js_sensor_orientation.As<Napi::Number>().Int32Value();
-    }
-    Napi::Value js_processing_mode = js_config.Get("processing_mode");
-    if (js_processing_mode.IsNumber())
-    {
-      tracker_config.processing_mode = (k4abt_tracker_processing_mode_t)js_processing_mode.As<Napi::Number>().Int32Value();
-    }
-    Napi::Value js_gpu_device_id = js_config.Get("gpu_device_id");
-    if (js_gpu_device_id.IsNumber())
-    {
-      tracker_config.gpu_device_id = (int32_t)js_gpu_device_id.As<Napi::Number>().Int32Value();
-    }
+  if (info.Length() > 0) {
+      Napi::Object js_config =  info[0].As<Napi::Object>();
+      Napi::Value js_sensor_orientation = js_config.Get("sensor_orientation");
+      if (js_sensor_orientation.IsNumber())
+      {
+        tracker_config.sensor_orientation = (k4abt_sensor_orientation_t) js_sensor_orientation.As<Napi::Number>().Int32Value();
+      }
+      Napi::Value js_processing_mode = js_config.Get("processing_mode");
+      if (js_processing_mode.IsNumber())
+      {
+        tracker_config.processing_mode = (k4abt_tracker_processing_mode_t) js_processing_mode.As<Napi::Number>().Int32Value();
+      }
+      Napi::Value js_gpu_device_id = js_config.Get("gpu_device_id");
+      if (js_gpu_device_id.IsNumber())
+      {
+        tracker_config.gpu_device_id = (int32_t) js_gpu_device_id.As<Napi::Number>().Int32Value();
+      }
+      Napi::Value js_model_path = js_config.Get("model_path");
+      if (js_model_path.IsString())
+      {
+        tracker_config.model_path = js_model_path.As<Napi::String>().Utf8Value().c_str();
+      }
   }
 
   k4abt_tracker_create(&sensor_calibration, tracker_config, &g_tracker);
@@ -645,6 +649,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
         colorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.colorImageFrame.width));
         colorImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.colorImageFrame.height));
         colorImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.colorImageFrame.stride_bytes));
+        colorImageFrame.Set(Napi::String::New(env, "deviceTimestamp"), Napi::Number::New(env, jsFrame.colorImageFrame.device_timestamp));
+        colorImageFrame.Set(Napi::String::New(env, "systemTimestamp"), Napi::Number::New(env, jsFrame.colorImageFrame.system_timestamp));
         data.Set(Napi::String::New(env, "colorImageFrame"), colorImageFrame);
       }
       {
@@ -655,6 +661,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
         depthImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.depthImageFrame.width));
         depthImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.depthImageFrame.height));
         depthImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.depthImageFrame.stride_bytes));
+        depthImageFrame.Set(Napi::String::New(env, "deviceTimestamp"), Napi::Number::New(env, jsFrame.depthImageFrame.device_timestamp));
+        depthImageFrame.Set(Napi::String::New(env, "systemTimestamp"), Napi::Number::New(env, jsFrame.depthImageFrame.system_timestamp));
         data.Set(Napi::String::New(env, "depthImageFrame"), depthImageFrame);
       }
       {
@@ -665,6 +673,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
         irImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.irImageFrame.width));
         irImageFrame.Set(Napi::String::New(env, "height"), Napi::Number::New(env, jsFrame.irImageFrame.height));
         irImageFrame.Set(Napi::String::New(env, "strideBytes"), Napi::Number::New(env, jsFrame.irImageFrame.stride_bytes));
+        irImageFrame.Set(Napi::String::New(env, "deviceTimestamp"), Napi::Number::New(env, jsFrame.irImageFrame.device_timestamp));
+        irImageFrame.Set(Napi::String::New(env, "systemTimestamp"), Napi::Number::New(env, jsFrame.irImageFrame.system_timestamp));
         data.Set(Napi::String::New(env, "irImageFrame"), irImageFrame);
       }
       {
@@ -841,6 +851,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
             jsFrame.depthImageFrame.height = k4a_image_get_height_pixels(depth_image);
             jsFrame.depthImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_image);
             jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
+            jsFrame.depthImageFrame.device_timestamp = k4a_image_get_device_timestamp_usec(depth_image);
+          jsFrame.depthImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(depth_image);
           }
         }
         // capture the IR image
@@ -852,6 +864,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
           jsFrame.irImageFrame.height = k4a_image_get_height_pixels(ir_image);
           jsFrame.irImageFrame.stride_bytes = k4a_image_get_stride_bytes(ir_image);
           jsFrame.irImageFrame.image_data = new uint8_t[jsFrame.irImageFrame.image_length];
+          jsFrame.irImageFrame.device_timestamp = k4a_image_get_device_timestamp_usec(ir_image);
+          jsFrame.irImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(ir_image);
         }
       }
       if (g_deviceConfig.color_resolution != K4A_COLOR_RESOLUTION_OFF)
@@ -865,6 +879,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
           jsFrame.colorImageFrame.height = k4a_image_get_height_pixels(color_image);
           jsFrame.colorImageFrame.stride_bytes = k4a_image_get_stride_bytes(color_image);
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
+          jsFrame.colorImageFrame.device_timestamp = k4a_image_get_device_timestamp_usec(color_image);
+          jsFrame.colorImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(color_image);
         }
         colorTimestamp = (double)k4a_image_get_device_timestamp_usec(color_image);
       }
