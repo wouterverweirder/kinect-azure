@@ -32,7 +32,6 @@ std::mutex mtx;
 Napi::ThreadSafeFunction tsfn;
 std::mutex threadJoinedMutex;
 
-bool is_open = false;
 bool is_listening = false;
 bool is_playbackFileOpen = false;
 bool is_playing = false;
@@ -163,7 +162,6 @@ Napi::Value MethodOpen(const Napi::CallbackInfo &info)
   }
 
   bool returnValue = K4A_SUCCEEDED(k4a_device_open(index, &g_device));
-  is_open = returnValue;
   return Napi::Boolean::New(env, returnValue);
 }
 
@@ -210,7 +208,6 @@ Napi::Value MethodSerialOpen(const Napi::CallbackInfo &info)
     }
   }
 
-  is_open = returnValue;
   /* printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue); */
   return Napi::Boolean::New(env, returnValue);
 }
@@ -221,7 +218,6 @@ Napi::Value MethodClose(const Napi::CallbackInfo &info)
   // printf("[kinect_azure.cc] MethodClose\n");
   k4a_device_close(g_device);
   bool returnValue = (g_device == nullptr) ? true : false;
-  is_open = returnValue;
   return Napi::Boolean::New(env, returnValue);
 }
 
