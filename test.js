@@ -1,8 +1,11 @@
 const KinectAzure = require('.');
 const kinect = new KinectAzure();
 
+console.log("num installed kinects:" + kinect.getInstalledCount());
+
 if(kinect.open()) {
   console.log("Kinect Opened");
+  console.log("serial nr: " + kinect.getSerialNumber());
   kinect.startCameras({
     depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
     color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P
@@ -21,4 +24,6 @@ if(kinect.open()) {
       console.log("stopped cameras");
     });
   });
+} else {
+  console.log("no kinect connected");
 }

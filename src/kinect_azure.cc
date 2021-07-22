@@ -155,39 +155,15 @@ Napi::Value MethodOpen(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
+  int index = 0;
+
   // If index specified, look for specific Kinect.
-  if (info.Length() == 1)
-  {
-
-    //Error check for invalid index
-    int index = info[0].ToNumber().Int32Value();
-    if (index >= k4a_device_get_installed_count())
-    {
-      Napi::TypeError::New(env, "Index passed is higher than amount of Kinect devices currently connected")
-          .ThrowAsJavaScriptException();
-      return Napi::String::New(env, "Error");
-    }
-
-    if (K4A_SUCCEEDED(k4a_device_open(index, &g_device)))
-    {
-      //Device opened
-      /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u success\n", index); */
-    }
-    else
-    {
-      /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u failed\n", index); */
-    }
-  }
-  else
-  {
-    // No device exists or no index number specified, open default Kinect.
-    /* printf("[kinect_azure.cc] MethodOpen - Opening default device\n"); */
-    k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
+  if (info.Length() == 1 && info[0].IsNumber()) {
+    index = info[0].ToNumber().Int32Value();
   }
 
-  bool returnValue = (g_device == nullptr) ? false : true;
+  bool returnValue = K4A_SUCCEEDED(k4a_device_open(index, &g_device));
   is_open = returnValue;
-  /* printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue); */
   return Napi::Boolean::New(env, returnValue);
 }
 
@@ -195,57 +171,45 @@ Napi::Value MethodSerialOpen(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
+  bool returnValue = false;
+
   // If serial number specified, look for specific Kinect.
   if (info.Length() == 1 && strcmp("undefined", info[0].ToString().Utf8Value().c_str()) != 0)
   {
-    //Get serial number
     char serialNumber[256];
     strcpy(serialNumber, info[0].ToString().Utf8Value().c_str());
-    /* printf("[kinect_azure.cc] MethodOpen - serial number: %s\n", info[0].ToString().Utf8Value().c_str()); */
-    /* printf("[kinect_azure.cc] MethodOpen - copied serial number: %s\n", serialNumber); */
 
     uint32_t count = k4a_device_get_installed_count();
-    /* printf("[kinect_azure.cc] MethodOpen - # of Kinects: %u\n", count); */
     for (uint8_t i = 0; i < count; i++)
     {
-      /* printf("[kinect_azure.cc] MethodOpen - Value of i: %u\n", i); */
 
       if (K4A_SUCCEEDED(k4a_device_open(i, &g_device)))
       {
-        //Device opened, check serial number
-        /*printf("[kinect_azure.cc] MethodOpen - Opening device at index %u success\n", i); */
-        //Check for matching serial number
+        // Device opened, check serial number
         char serial_number[256];
         size_t serial_number_size = sizeof(serial_number);
         k4a_device_get_serialnum(g_device, serial_number, &serial_number_size);
         if (strcmp(serial_number, serialNumber) == 0)
         {
-          //Match!
-          /* printf("[kinect_azure.cc] MethodOpen - Match Found!\n"); */
+          returnValue = true;
           break; //device already opened; nothing more to do.
         }
         else
         {
           //Not a match; close device for next check
-          /* printf("[kinect_azure.cc] MethodOpen - Not a match!\n"); */
           k4a_device_close(g_device);
           g_device = nullptr;
         }
-      }
-      else
-      {
-        /* printf("[kinect_azure.cc] MethodOpen - Opening device at index %u failed\n", i); */
       }
     }
   }
   else
   {
-    // No device exists or no serial number specified, open default Kinect.
-    /* printf("[kinect_azure.cc] MethodOpen - Opening default device\n"); */
-    k4a_device_open(K4A_DEVICE_DEFAULT, &g_device);
+    if (K4A_SUCCEEDED(k4a_device_open(K4A_DEVICE_DEFAULT, &g_device))) {
+      returnValue = true;
+    }
   }
 
-  bool returnValue = (g_device == nullptr) ? false : true;
   is_open = returnValue;
   /* printf("[kinect_azure.cc] MethodOpen - returnValue: %u\n", returnValue); */
   return Napi::Boolean::New(env, returnValue);
@@ -852,7 +816,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
             jsFrame.depthImageFrame.stride_bytes = k4a_image_get_stride_bytes(depth_image);
             jsFrame.depthImageFrame.image_data = new uint8_t[jsFrame.depthImageFrame.image_length];
             jsFrame.depthImageFrame.device_timestamp = k4a_image_get_device_timestamp_usec(depth_image);
-          jsFrame.depthImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(depth_image);
+            jsFrame.depthImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(depth_image);
           }
         }
         // capture the IR image
@@ -881,8 +845,8 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
           jsFrame.colorImageFrame.image_data = new uint8_t[jsFrame.colorImageFrame.image_length];
           jsFrame.colorImageFrame.device_timestamp = k4a_image_get_device_timestamp_usec(color_image);
           jsFrame.colorImageFrame.system_timestamp = k4a_image_get_system_timestamp_nsec(color_image);
+          colorTimestamp = (double)k4a_image_get_device_timestamp_usec(color_image);
         }
-        colorTimestamp = (double)k4a_image_get_device_timestamp_usec(color_image);
       }
 
       if (g_customDeviceConfig.include_depth_to_color)
