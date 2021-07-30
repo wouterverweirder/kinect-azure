@@ -1,4 +1,4 @@
-declare module "@teamelysium/kinect-azure" {
+declare module "kinect-azure" {
 	export default KinectAzure;
 
 	export interface ImageFrame {
