@@ -1,39 +1,40 @@
 {
-  "name": "kinect-azure",
-  "version": "0.2.4",
-  "description": "Nodejs library to access the azure kinect data from the official SDK",
-  "repository": "https://github.com/wouterverweirder/kinect-azure",
-  "main": "lib/kinect-azure.js",
-  "dependencies": {
-    "node-addon-api": "^1.0.0",
-    "prebuild-install": "^6.1.3"
-  },
-  "engines": {
-    "node": ">= 10.16.0"
-  },
-  "scripts": {
-    "install": "prebuild-install -t 4 --runtime napi || prebuild -t 4 --runtime napi || node-gyp rebuild",
-    "prebuild-install": "prebuild-install -t 4 --runtime napi --verbose",
-    "prebuild": "prebuild -t 4 --runtime napi",
-    "clean": "rimraf ./lib/binding && rimraf ./build && rimraf ./prebuilds",
-    "package": "prebuild -t 4 --runtime napi -u",
-    "start": "cd ./examples/electron && npm start",
-    "prepublishOnly": "rimraf ./examples/**/node_modules",
-    "copy-dlls": "xcopy \"C:\\Program Files\\Azure Kinect Body Tracking SDK\\tools\\\" . /H /C /Y"
-  },
-  "gypfile": true,
-  "binary": {
-    "module_name": "kinectAzure",
-    "module_path": "./lib/binding/napi-v4",
-    "remote_path": "v{version}",
-    "package_name": "kinect-azure-v{version}-napi-v4-{platform}-{arch}.tar.gz",
-    "host": "https://github.com/wouterverweirder/kinect-azure/releases/download/",
-    "napi_versions": [
-      4
-    ]
-  },
-  "devDependencies": {
-    "rimraf": "^3.0.0",
-    "prebuild": "^10.0.1"
-  }
+	"name": "kinect-azure",
+	"version": "0.2.4",
+	"description": "Nodejs library to access the azure kinect data from the official SDK",
+	"repository": "https://github.com/wouterverweirder/kinect-azure",
+	"main": "lib/kinect-azure.js",
+	"dependencies": {
+		"@mapbox/node-pre-gyp": "^1.0.5",
+		"node-addon-api": "^1.0.0",
+		"prebuild-install": "^6.1.3"
+	},
+	"engines": {
+		"node": ">= 10.16.0"
+	},
+	"scripts": {
+		"install": "node-pre-gyp reinstall --fallback-to-build || node-gyp rebuild",
+		"prebuild-install": "prebuild-install -t 4 --runtime napi --verbose",
+		"prebuild": "prebuild -t 4 --runtime napi",
+		"clean": "rimraf ./lib/binding && rimraf ./build && rimraf ./prebuilds",
+		"package": "prebuild -t 4 --runtime napi -u",
+		"start": "cd ./examples/electron && npm start",
+		"prepublishOnly": "rimraf ./examples/**/node_modules",
+		"copy-dlls": "xcopy \"C:\\Program Files\\Azure Kinect Body Tracking SDK\\tools\\\" . /H /C /Y"
+	},
+	"gypfile": true,
+	"binary": {
+		"module_name": "kinectAzure",
+		"module_path": "./lib/binding/napi-v{napi_build_version}",
+		"remote_path": "v{version}",
+		"package_name": "kinect-azure-v{version}-napi-v{napi_build_version}-{platform}-{arch}.tar.gz",
+		"host": "https://github.com/wouterverweirder/kinect-azure/releases/download/",
+		"napi_versions": [
+			4
+		]
+	},
+	"devDependencies": {
+		"prebuild": "^10.0.1",
+		"rimraf": "^3.0.0"
+	}
 }
