@@ -9,6 +9,11 @@ declare module "kinect-azure" {
 		strideBytes: number;
 	}
 
+	export interface TimeStamp {
+		deviceTimeStamp: number;
+		systemTimeStamp: number;
+	}
+
 	export interface Body {
 		id: number;
 		skeleton: Skeleton;
@@ -51,9 +56,9 @@ declare module "kinect-azure" {
 			gyroZ: number;
 			gyroTimestamp: number;
 		};
-		colorImageFrame: ImageFrame;
-		depthImageFrame: ImageFrame;
-		irImageFrame: ImageFrame;
+		colorImageFrame: ImageFrame & TimeStamp;
+		depthImageFrame: ImageFrame & TimeStamp;
+		irImageFrame: ImageFrame & TimeStamp;
 		depthToColorImageFrame: ImageFrame;
 		colorToDepthImageFrame: ImageFrame;
 		bodyFrame: {
