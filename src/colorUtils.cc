@@ -12,7 +12,7 @@ using namespace std;
 class colorUtils
 {
    public :
-      static void colorUtils::hsvToRgb(int H, double S, double V, int* rgb);
+      static void hsvToRgb(int H, double S, double V, int* rgb);
 } ;
 
 void colorUtils::hsvToRgb(int H, double S, double V, int* rgb) {
