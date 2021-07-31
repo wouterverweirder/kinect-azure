@@ -65,6 +65,17 @@ $ npm start
 
 The electron examples have the javascript code inside the html files. You can find these html files in [examples/electron/renderer/demos](examples/electron/renderer/demos).
 
+## Contributors ✨
+
+Special thank you to the following people for improving this library:
+
+- [Min Oh (오민석)](https://github.com/challenger71498)
+- [Chris Bright](https://github.com/Chrisbright10)
+- [Pete Shand](https://github.com/peteshand)
+- [Sir Fancy Walrus](https://github.com/SirFancyWalrus)
+- [Itok](https://github.com/ikenichiro)
+- [Steven Rick](https://github.com/stevenrick)
+
 ## Donate
 
 Like this library? Always welcome to buy me a beer 🍺
