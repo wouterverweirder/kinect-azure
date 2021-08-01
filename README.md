@@ -1,5 +1,7 @@
 # Azure Kinect Library for Node / Electron
 
+[![npm](https://img.shields.io/node/v/kinect-azure.svg)](https://nodejs.org/en/)
+[![npm](https://img.shields.io/npm/v/kinect-azure.svg)](https://npmjs.org/package/kinect-azure)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=NUZP3U3QZEQV2&currency_code=EUR&source=url)
 
 This library enables you to use the Azure Kinect in your nodejs or electron apps on Windows and Linux.
