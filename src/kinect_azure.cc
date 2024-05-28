@@ -1,3 +1,4 @@
+#define NODE_API_NO_EXTERNAL_BUFFERS_ALLOWED
 #define KINECT_AZURE_ENABLE_BODY_TRACKING = 1
 
 #include <thread>
@@ -603,7 +604,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
       }
       {
         Napi::Object colorImageFrame = Napi::Object::New(env);
-        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.colorImageFrame.image_data, jsFrame.colorImageFrame.image_length);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.colorImageFrame.image_data, jsFrame.colorImageFrame.image_length);
         colorImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
         colorImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.colorImageFrame.image_length));
         colorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.colorImageFrame.width));
@@ -615,7 +616,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
       }
       {
         Napi::Object depthImageFrame = Napi::Object::New(env);
-        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.depthImageFrame.image_data, jsFrame.depthImageFrame.image_length);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.depthImageFrame.image_data, jsFrame.depthImageFrame.image_length);
         depthImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
         depthImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.depthImageFrame.image_length));
         depthImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.depthImageFrame.width));
@@ -627,7 +628,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
       }
       {
         Napi::Object irImageFrame = Napi::Object::New(env);
-        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.irImageFrame.image_data, jsFrame.irImageFrame.image_length);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.irImageFrame.image_data, jsFrame.irImageFrame.image_length);
         irImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
         irImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.irImageFrame.image_length));
         irImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.irImageFrame.width));
@@ -639,7 +640,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
       }
       {
         Napi::Object depthToColorImageFrame = Napi::Object::New(env);
-        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.depthToColorImageFrame.image_data, jsFrame.depthToColorImageFrame.image_length);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.depthToColorImageFrame.image_data, jsFrame.depthToColorImageFrame.image_length);
         depthToColorImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
         depthToColorImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.image_length));
         depthToColorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.depthToColorImageFrame.width));
@@ -649,7 +650,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
       }
       {
         Napi::Object colorToDepthImageFrame = Napi::Object::New(env);
-        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.colorToDepthImageFrame.image_data, jsFrame.colorToDepthImageFrame.image_length);
+        Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.colorToDepthImageFrame.image_data, jsFrame.colorToDepthImageFrame.image_length);
         colorToDepthImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
         colorToDepthImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.image_length));
         colorToDepthImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.colorToDepthImageFrame.width));
@@ -663,7 +664,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
         {
           {
             Napi::Object bodyIndexMapImageFrame = Napi::Object::New(env);
-            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length);
+            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length);
             bodyIndexMapImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
             bodyIndexMapImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.image_length));
             bodyIndexMapImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapImageFrame.width));
@@ -673,7 +674,7 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo &info)
           }
           {
             Napi::Object bodyIndexMapToColorImageFrame = Napi::Object::New(env);
-            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length);
+            Napi::Buffer<uint8_t> imageData = Napi::Buffer<uint8_t>::NewOrCopy(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_data, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length);
             bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "imageData"), imageData);
             bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "imageLength"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.image_length));
             bodyIndexMapToColorImageFrame.Set(Napi::String::New(env, "width"), Napi::Number::New(env, jsFrame.bodyFrame.bodyIndexMapToColorImageFrame.width));
