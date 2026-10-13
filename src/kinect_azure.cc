@@ -176,7 +176,13 @@ Napi::Value MethodSerialOpen(const Napi::CallbackInfo &info)
   if (info.Length() == 1 && strcmp("undefined", info[0].ToString().Utf8Value().c_str()) != 0)
   {
     char serialNumber[256];
-    strcpy(serialNumber, info[0].ToString().Utf8Value().c_str());
+    std::string requestedSerial = info[0].ToString().Utf8Value();
+    if (requestedSerial.size() >= sizeof(serialNumber))
+    {
+        Napi::TypeError::New(env, "serial number is too long").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    snprintf(serialNumber, sizeof(serialNumber), "%s", requestedSerial.c_str());
 
     uint32_t count = k4a_device_get_installed_count();
     for (uint8_t i = 0; i < count; i++)
@@ -347,7 +353,12 @@ Napi::Value MethodSeek(const Napi::CallbackInfo &info)
   if (js_time.IsNumber())
   {
     int32_t time = (int32_t)js_time.As<Napi::Number>().Int32Value();
-    k4a_playback_seek_timestamp(playback_handle, time * 1000000, K4A_PLAYBACK_SEEK_BEGIN);
+    if (time < 0)
+    {
+        Napi::TypeError::New(env, "seek time must be non-negative").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    k4a_playback_seek_timestamp(playback_handle, (int64_t)time * 1000000, K4A_PLAYBACK_SEEK_BEGIN);
     is_seeking = true;
   }
   return Napi::Boolean::New(env, true);
